@@ -40,6 +40,44 @@ MEDIA 算法允许分区大小超过 EPC，通过权衡“跨服务器通信开�
     *   **并行执行**：调度器能够识别互不依赖的分区（例如 Inception 模块中的不同分支），并将它们调度到不同的服务器上同时运行。
     *   **优势**：在 InceptionV3 等具有复杂分支结构的模型上，能够显著降低端到端延迟。
 
+### 4. OCC (Occlumency)
+
+**核心思想**：基于 Intel SGX 的安全飞地，使用 SGX enclave 在云端执行深度学习推理，确保用户数据在整个推理过程中的机密性与完整性。该方法在单服务器上执行，严格遵守 EPC（约 93 MB）容量限制，采用 **严格分区**（每个分区的内存不超过 EPC）并采用 **串行调度**，不涉及跨服务器通信。
+
+* **分区策略**：在模型 DAG 上进行拓扑排序后，将每个层依次放入当前分区，若加入后内存超出 EPC，则开启新分区。每个分区在同一服务器上顺序执行。
+* **调度策略**：所有分区在单服务器上按顺序执行，避免网络通信开销，唯一的开销来自 SGX 换页（Demand Paging）和上下文切换。
+* **与其他算法的区别**：相较于 DINA、MEDIA、Ours，OCC 不利用多服务器并行，也不进行跨服务器通信，仅在单服务器环境下提供安全推理基准。
+
+#### SGX 时间开销拆解
+
+本实现对 Intel SGX 环境下的各项时间开销进行了精细建模，确保仿真结果贴近真实硬件行为。以下是端到端推理时延的组成部分：
+
+| 时间组件 | 物理来源 | 建模方式 | 典型值 |
+|----------|----------|----------|--------|
+| **Enclave Entry/Exit** | `ecall`/`ocall` 系统调用开销（保存/恢复寄存器、页表切换、MAC 校验） | 每个分区固定开销 | **0.005 ms** / 分区 |
+| **执行时间（基准）** | 分区内所有层的计算时间（enclave_time） | `Σ layer.workload` | 取决于模型 |
+| **EPC 溢出惩罚** | 当分区内存 > EPC 时的**一次性初始化开销**（EINIT、元数据重建、初始页面错误爆发） | `penalty = calculate_penalty(memory)`<br>- memory ≤ EPC: `1.0×`<br>- EPC < memory ≤ 2×EPC: `4.5×`<br>- memory > 2×EPC: `4.5 + 0.25×(额外EPC)` | **4.5×** (首次溢出) |
+| **页面错误处理** | 每次访问不在 EPC 的页面触发 `#PF`，进入 SGX 页面错误处理例程 | `num_pages × 0.03 ms`<br>页面数 = `swap_bytes_mb × 1024 / 4 KB` | **30 µs** / 4 KB 页面 |
+| **分页数据传输** | EPC ↔ DRAM 的加密/解密传输（受 AES-NI 引擎限制） | `swap_bytes_mb / paging_bandwidth`<br>带宽 = **1 GB/s** (0.8–1.2 GB/s) | **1 MB/ms** |
+| **上下文切换** | 分区间切换时换出前一分区、换入下一分区的综合开销 | `(prev_mem + next_mem) × (页面错误 + 传输)` | 取决于分区大小 |
+
+**关键假设与配置**：
+
+1. **EPC 大小**：`EPC_EFFECTIVE_MB = 93 MB`（Intel SGX1 平台典型值：128 MB 总容量 - 35 MB 元数据）
+2. **页面大小**：`PAGE_SIZE = 4 KB`（SGX 标准页面大小）
+3. **分页带宽**：`PAGING_BANDWIDTH = 1 GB/s`（实测范围 0.8–1.2 GB/s，受 CPU 加密单元限制）
+4. **页面错误开销**：`PAGE_FAULT_OVERHEAD = 30 µs`（包含上下文切换、页表更新、MAC 校验）
+5. **Enclave Entry/Exit**：`ENCLAVE_OVERHEAD = 5 µs`（基于 Intel SGX SDK 测量）
+
+**建模合理性说明**：
+
+- **惩罚因子与分页开销的分离**：`calculate_penalty()` **仅代表 EPC 溢出时的一次性初始化成本**（EINIT、元数据重建），**不包含**运行时的逐页换页开销（后者在 `swap_time` 中单独计算），避免重复计费。
+- **分段惩罚模型**：基于 ICDCS'22《DNN Partitioning and Assignment for Distributed Inference in SGX-Empowered Edge Cloud》的实验数据，当内存首次超出 EPC 时会出现 **突发性** 的初始化开销（约 4.5×），而继续增长时呈现 **缓慢线性** 增长（约 0.25×/EPC），该模型比简单的线性惩罚更符合真实硬件行为。
+- **页面粒度建模**：将换页时间细化为 `页面数 × 单页固定开销 + 数据传输时间`，能够反映 **页面碎片** 与 **访问局部性** 对性能的影响。
+
+**参考文献**  
+Lee, T., Lin, Z., Pushp, S., Li, C., Liu, Y., Lee, Y., Xu, F., Xu, C., Zhang, L., & Song, J. *Occlumency: Privacy‑preserving Remote Deep‑learning Inference Using SGX*. MobiCom 2019. DOI: 10.1145/3300061.3345447.
+
 ## 项目结构
 
 *   `datasets/`: 存放模型数据的 CSV 文件。

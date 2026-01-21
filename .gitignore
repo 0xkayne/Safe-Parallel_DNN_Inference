@@ -1,1 +1,46 @@
-.venv
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Project specific - temporary files
+debug*.txt
+debug*.py
+test_*.py
+*_output.txt
+*_report.txt
+*_partitions.txt
+cleanup_project.py
+generate_dependency_graph.py
+
+# Temporary files
+*.tmp
+*.bak
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Results (optional - uncomment to ignore)
+# results/*.csv
+# server-chart/*.csv
+# network-chart/*.csv
+# figures/*.png
+# figures/*.pdf

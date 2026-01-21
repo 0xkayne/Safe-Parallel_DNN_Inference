@@ -56,14 +56,14 @@ def create_server_chart(csv_file, model_name):
     }
     
     # Calculate dynamic offset based on data range
-    data_range = df[['OCC', 'DINA', 'MEIDA', 'Ours']].max().max() - df[['OCC', 'DINA', 'MEIDA', 'Ours']].min().min()
-    offset_value = data_range * 0.005  # 0.5% of data range
+    # data_range = df[['OCC', 'DINA', 'MEIDA', 'Ours']].max().max() - df[['OCC', 'DINA', 'MEIDA', 'Ours']].min().min()
+    # offset_value = data_range * 0.005  # 0.5% of data range
     
     # Add small vertical offset to separate overlapping lines visually
     offsets = {
         'OCC': 0,
-        'DINA': offset_value,       # Slight upward offset
-        'MEIDA': -offset_value,     # Slight downward offset
+        'DINA': 0,       # Slight upward offset
+        'MEIDA': 0,     # Slight downward offset
         'Ours': 0
     }
     
@@ -131,12 +131,13 @@ def create_server_chart(csv_file, model_name):
 
 # Define all models to process
 models = [
-    ('server_DistillBERT.csv', 'DistillBERT'),
-    ('server_ALBERT.csv', 'ALBERT'),
-    ('server_BERT.csv', 'BERT'),
-    ('server_TinyBERT-4l.csv', 'TinyBERT-4L'),
-    ('server_TinyBERT-6l.csv', 'TinyBERT-6L'),
-    ('server_ViT.csv', 'ViT'),
+    ('server_hetero_incremental_DistillBERT.csv', 'DistillBERT'),
+    ('server_hetero_incremental_ALBERT.csv', 'ALBERT'),
+    ('server_hetero_incremental_BERT.csv', 'BERT'),
+    ('server_hetero_incremental_TinyBERT-4l.csv', 'TinyBERT-4L'),
+    ('server_hetero_incremental_TinyBERT-6l.csv', 'TinyBERT-6L'),
+    ('server_hetero_incremental_ViT.csv', 'ViT'),
+    ('server_hetero_incremental_inceptionV3.csv', 'InceptionV3'),
 ]
 
 print("Generating charts for all models...")

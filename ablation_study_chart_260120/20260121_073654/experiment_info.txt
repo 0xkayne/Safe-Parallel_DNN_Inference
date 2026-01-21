@@ -1,0 +1,10 @@
+Ablation Study Experiment Results
+============================================================
+Timestamp: 2026-01-21 07:50:48
+Server Charts: 12
+Network Charts: 12
+
+Configuration:
+  Server counts: [1, 2, 3, 4, 5, 6, 7, 8]
+  Network bandwidths: [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100] Mbps
+  Server config: ['Celeron_G4930', 'Celeron_G4930', 'i5-6400', 'i5-6400', 'i5-6400', 'i5-6400', 'i5-10400', 'Xeon_IceLake (8c)']

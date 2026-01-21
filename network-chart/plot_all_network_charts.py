@@ -56,12 +56,12 @@ def create_network_chart(csv_file, model_name):
     }
     
     # Calculate dynamic offset based on data range (using log scale for better visibility)
-    data_min = df[['OCC', 'DINA', 'MEIDA', 'Ours']].min().min()
-    data_max = df[['OCC', 'DINA', 'MEIDA', 'Ours']].max().max()
+    # data_min = df[['OCC', 'DINA', 'MEIDA', 'Ours']].min().min()
+    # data_max = df[['OCC', 'DINA', 'MEIDA', 'Ours']].max().max()
     
     # For network data, use multiplicative offset instead of additive (works better with log scale)
-    offset_factor_up = 1.03     # 3% up
-    offset_factor_down = 0.97  # 3% down
+    offset_factor_up = 0.0     # 3% up
+    offset_factor_down = 0.0  # 3% down
     
     # Plot each algorithm
     x = df['Bandwidth(Mbps)']
@@ -90,13 +90,33 @@ def create_network_chart(csv_file, model_name):
     ax.set_title(f'Inference Latency vs. Network Bandwidth ({model_name})', 
                  fontsize=16, fontweight='bold', pad=15)
     
-    # Use log scale for both axes since bandwidth and latency span large ranges
-    ax.set_xscale('log')
-    ax.set_yscale('log')
+    # Determine scale based on X-axis range
+    # If range is small and linear (e.g. 1-10 Mbps), use linear scale
+    # If range spans orders of magnitude (e.g. 1-1000 Mbps), use log scale
+    x_min, x_max = x.min(), x.max()
     
-    # Set x-axis ticks to match data points
-    ax.set_xticks(x)
-    ax.set_xticklabels([str(int(v)) for v in x], fontsize=11)
+    if x_max <= 20 and (x_max - x_min) < 20:
+        # Assuming linear small range
+        ax.set_xscale('linear')
+        ax.set_yscale('log') # Keep Y log as latency varies widely
+        
+        # Set integer ticks for linear scale
+        tick_step = 1 if x_max <= 10 else 2
+        ticks = np.arange(int(x_min), int(x_max) + 1, tick_step)
+        ax.set_xticks(ticks)
+        ax.set_xticklabels([str(int(t)) for t in ticks], fontsize=11)
+        ax.set_xlim(x_min - 0.5, x_max + 0.5) # Add padding
+        
+    else:
+        # Default to log scale for wide ranges
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+        
+        # Set x-axis ticks to match data points (if not too many)
+        if len(x) <= 12:
+            ax.set_xticks(x)
+            ax.set_xticklabels([str(int(v)) for v in x], fontsize=11)
+        
     ax.tick_params(axis='y', labelsize=12)
     
     # Add legend

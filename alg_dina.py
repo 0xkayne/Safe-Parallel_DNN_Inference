@@ -1,108 +1,107 @@
 import networkx as nx
-from common import Partition, EPC_EFFECTIVE_MB, calculate_penalty, PAGING_BANDWIDTH_MB_PER_MS
+import math
+from common import Partition, EPC_EFFECTIVE_MB, calculate_penalty, PAGING_BANDWIDTH_MB_PER_MS, PAGE_SIZE_KB, PAGE_FAULT_OVERHEAD_MS, ENCLAVE_ENTRY_EXIT_OVERHEAD_MS, ScheduleResult
 
 class DINAAlgorithm:
     def __init__(self, G, layers_map, servers, bandwidth_mbps):
         self.G = G
         self.layers_map = layers_map
         self.servers = servers
-        self.bandwidth_mbps = bandwidth_mbps # Mbps
-        # Convert Bandwidth to MB/ms for simulation
-        # 1 Byte = 8 bits
-        # 1 MB = 8 * 10^6 bits
-        # MB/s = mbps / 8
-        # MB/ms = (mbps / 8) / 1000
+        self.bandwidth_mbps = bandwidth_mbps
         self.bandwidth_per_ms = (bandwidth_mbps / 8.0) / 1000.0
 
     def run(self):
-        # DINA: Strict Partitioning < EPC
-        # Simple greedy strategy following topological sort
-        
         topo_order = list(nx.topological_sort(self.G))
         partitions = []
-        
         current_part_layers = []
         current_mem = 0.0
         
         for node_id in topo_order:
             layer = self.layers_map[node_id]
             
-            # If adding this layer exceeds EPC, finalize current partition and start new
-            if current_mem + layer.memory > EPC_EFFECTIVE_MB:
+            # Try adding this layer to the current partition
+            test_layers = current_part_layers + [layer]
+            # Create temporary partition to calculate accurate peak memory
+            test_partition = Partition(-1, test_layers, self.G)
+            
+            if test_partition.total_memory > EPC_EFFECTIVE_MB:
                 if current_part_layers:
-                    partitions.append(Partition(len(partitions), current_part_layers))
-                
-                # Start new partition
-                current_part_layers = [layer]
-                current_mem = layer.memory
-                
-                # Edge case: Single layer > EPC (Should theoretically not happen in DINA hypothesis, but we must handle it)
-                # If single layer > EPC, DINA forces it to be its own partition (and suffers penalty later)
+                     partitions.append(Partition(len(partitions), current_part_layers, self.G))
+                     current_part_layers = [layer]
+                else:
+                    current_part_layers = [layer]
             else:
                 current_part_layers.append(layer)
-                current_mem += layer.memory
-        
-        # Add last partition
+                
         if current_part_layers:
-            partitions.append(Partition(len(partitions), current_part_layers))
-            
+            partitions.append(Partition(len(partitions), current_part_layers, self.G))
         return partitions
 
     def schedule(self, partitions):
-        """
-        Round-Robin Scheduling:
-        Partition i is assigned to server (i % n_servers).
-        This forces network communication between consecutive partitions.
-        
-        Also includes SGX context switch paging overhead when partitions change.
-        """
         if not partitions:
-            return 0.0
+            return ScheduleResult("DINA", 0.0, {}, [])
         
         n_servers = len(self.servers)
         server_free_time = {s.id: 0.0 for s in self.servers}
+        server_schedule = {s.id: [] for s in self.servers}
         last_partition_info = {}
         
+        n_servers = len(self.servers)
         for i, p in enumerate(partitions):
-            # Round-robin: partition i → server i % n_servers
-            assigned_server = self.servers[i % n_servers]
+            best_server = None
+            best_finish_t = float('inf')
+            final_start_t = 0.0
             
-            # Communication cost (if previous partition was on different server)
-            comm = 0.0
-            paging_overhead = 0.0
+            # Universal SGX Paging Model
+            swap_bytes_mb = p.get_static_memory()
+            num_pages = math.ceil(swap_bytes_mb * 1024 / PAGE_SIZE_KB)
+            paging_overhead = (num_pages * PAGE_FAULT_OVERHEAD_MS + 
+                                swap_bytes_mb / PAGING_BANDWIDTH_MB_PER_MS + 
+                                ENCLAVE_ENTRY_EXIT_OVERHEAD_MS)
             
+            prev_end = 0.0
+            prev_server_id = -1
             if i > 0:
                 prev_info = last_partition_info[i - 1]
-                prev_p = partitions[i - 1]
-                
-                if prev_info['server'] != assigned_server.id:
-                    # Cross-server: network communication
+                prev_end = prev_info['end']
+                prev_server_id = prev_info['server']
+
+            for s in self.servers:
+                # CONSTRAINT: Must switch server after every partition to force network overhead
+                if i > 0 and s.id == prev_server_id and len(self.servers) > 1:
+                    continue
+                    
+                comm = 0.0
+                if i > 0 and prev_server_id != s.id:
+                    prev_p = partitions[i - 1]
                     vol = 0.0
                     for u in prev_p.layers:
                         for v in p.layers:
                             if self.G.has_edge(u.id, v.id):
                                 vol += self.G[u.id][v.id]['weight']
                     comm = vol / self.bandwidth_per_ms
-                else:
-                    # Same server: SGX context switch paging overhead
-                    # Swap out previous partition + swap in current partition
-                    swap_out = min(prev_p.total_memory, EPC_EFFECTIVE_MB)
-                    swap_in = min(p.total_memory, EPC_EFFECTIVE_MB)
-                    paging_overhead = (swap_out + swap_in) / PAGING_BANDWIDTH_MB_PER_MS
                 
-                data_ready = prev_info['end'] + comm + paging_overhead
-            else:
-                data_ready = 0.0
-            
-            start_t = max(server_free_time[assigned_server.id], data_ready)
-            
-            penalty_factor = calculate_penalty(p.total_memory)
-            exec_t = (p.total_workload * penalty_factor) / assigned_server.power_ratio
-            
-            finish_t = start_t + exec_t
-            
-            server_free_time[assigned_server.id] = finish_t
-            last_partition_info[i] = {'end': finish_t, 'server': assigned_server.id}
-        
-        return max(info['end'] for info in last_partition_info.values())
+                start_loading = max(server_free_time[s.id], prev_end + comm)
+                start_exec = start_loading + paging_overhead
+                
+                penalty_factor = calculate_penalty(p.total_memory)
+                exec_t = (p.total_workload * penalty_factor) / s.power_ratio
+                finish_t = start_exec + exec_t
+                
+                if finish_t < best_finish_t:
+                    best_finish_t = finish_t
+                    best_server = s
+                    final_start_t = start_exec
 
+            # Assign to best alternative server
+            server_free_time[best_server.id] = best_finish_t
+            server_schedule[best_server.id].append({
+                'start': final_start_t,
+                'end': best_finish_t,
+                'partition_id': p.id,
+                'partition': p
+            })
+            last_partition_info[i] = {'end': best_finish_t, 'server': best_server.id}
+        
+        total_latency = max(info['end'] for info in last_partition_info.values())
+        return ScheduleResult("DINA", total_latency, server_schedule, partitions)

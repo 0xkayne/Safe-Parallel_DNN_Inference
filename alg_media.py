@@ -1,349 +1,273 @@
 import networkx as nx
-from common import Partition, EPC_EFFECTIVE_MB, calculate_penalty, PAGING_BANDWIDTH_MB_PER_MS
+import math
+from common import Partition, EPC_EFFECTIVE_MB, calculate_penalty, PAGE_SIZE_KB, PAGE_FAULT_OVERHEAD_MS, ENCLAVE_ENTRY_EXIT_OVERHEAD_MS, DEFAULT_PAGING_BW_MBPS, ScheduleResult
 
 class MEDIAAlgorithm:
-    """
-    MEDIA Algorithm Implementation (Paper-compliant)
-    
-    Implements:
-    - Algorithm 1: Edge Selection (preserves parallel structures)
-    - Algorithm 2: Graph Partitioning with merge check
-    - Algorithm 3: Priority-based scheduling
-    """
-    
     def __init__(self, G, layers_map, servers, bandwidth_mbps):
         self.G = G
         self.layers_map = layers_map
         self.servers = servers
         self.bandwidth_per_ms = (bandwidth_mbps / 8.0) / 1000.0
-        self.node_to_partition = {}  # Maps layer_id -> Partition object
-        
+        self.node_to_partition = {}
+
     def _select_edges_for_partitioning(self):
         """
-        Algorithm 1: Edge Selection
-        
-        Selects edges that can be safely merged without breaking parallel structures.
-        Constraint 1: Only include edges where in_degree(v) == 1 OR out_degree(u) == 1
-        
-        Returns:
-            set: Set of mergeable edges (u, v)
+        Algorithm 1: Select candidate edges for merging.
+        MEDIA focuses on filling partitions efficiently. We relax the branching constraints 
+        to allow merging parallel nodes if it leads to better resource utilization.
         """
         M = set()
-        
-        # Iterate through graph in topological order
+
+        # Step 1: Calculate topological generations for level information
+        topological_gen = nx.topological_generations(self.G)
+        level_map = {}
+        for level, nodes in enumerate(topological_gen):
+            for node in nodes:
+                level_map[node] = level
+
+        # Step 2: Iterate through all edges in topological order
         for u in nx.topological_sort(self.G):
             for v in self.G.successors(u):
-                # Constraint 1: Preserve parallel structures
-                # Only merge if one of the following is true:
-                # - u has only one successor (no fork)
-                # - v has only one predecessor (no join)
-                if self.G.out_degree(u) == 1 or self.G.in_degree(v) == 1:
-                    M.add((u, v))
-        
+                # Rule 1: To preserve parallelism and avoid cycles, 
+                # do not merge if node has multiple successors or predecessors 
+                # (unless only one server is present).
+                if len(self.servers) > 1 and not (self.G.out_degree(u) == 1 or self.G.in_degree(v) == 1):
+                    continue
+                
+                # Rule 2: DAG Check...
+                    
         return M
     
+    def _would_cause_cycle(self, p1, p2):
+        """
+        Rigorous cycle detection for MEDIA.
+        A merge u + v causes a cycle if there's a path from v to u in current partition graph.
+        """
+        # Create a fresh partition DAG for the check
+        pg = nx.DiGraph()
+        # IDs of unique partitions
+        unique_pids = list(set([p.id for p in self.node_to_partition.values()]))
+        pg.add_nodes_from(unique_pids)
+        
+        for edge_u, edge_v in self.G.edges():
+            pu_id = self.node_to_partition[edge_u].id
+            pv_id = self.node_to_partition[edge_v].id
+            if pu_id != pv_id:
+                pg.add_edge(pu_id, pv_id)
+        
+        # Merge p1 and p2 conceptually. Check if a path exists from p2.id (v) back to p1.id (u)
+        # However, at this stage pu and pv are neighbors u->v.
+        # Check if there is already a path from the node that would be 'downstream' to 'upstream'
+        if nx.has_path(pg, p2.id, p1.id):
+            return True
+        return False
+
     def _merge_check(self, part1, part2):
         """
-        Algorithm 2: Merge Check Function
-        
-        Determines if two partitions should be merged based on:
-        1. Memory constraint: merged_mem <= EPC -> always merge
-        2. Time constraint: t_merged <= t_sep -> merge if beneficial
-        
-        Args:
-            part1, part2: Partition objects to potentially merge
-            
-        Returns:
-            bool: True if partitions should be merged
+        Case-by-case merge decision.
+        MEDIA Philosophy: 
+        1. Always merge if it fits in EPC.
+        2. If it exceeds EPC, merge if:
+           (Merged Execution with Paging Penalty) <= (Sum of Separate Execs + Network Comm + Sequential Paging Overhead)
+        This allows 'oversized' partitions to exist if communication costs are the dominant bottleneck.
         """
-        # Calculate merged metrics
-        merged_mem = part1.total_memory + part2.total_memory
-        merged_work = part1.total_workload + part2.total_workload
+        temp_layers = list(set(part1.layers + part2.layers))
+        temp_part = Partition(-1, temp_layers, self.G)
+        merged_mem = temp_part.total_memory
         
-        # Rule 1: If within EPC, always merge (no penalty, saves communication)
+        # Case A: Fits in EPC. Always merge to reduce switching/enclave entry overhead.
         if merged_mem <= EPC_EFFECTIVE_MB:
             return True
+            
+        # Case B: Memory exceeds EPC.
+        # We calculate the execution time with the penalty factor.
+        # Note: DINA/OCC discard this case immediately. MEDIA evaluates the trade-off.
         
-        # Rule 2: Compare execution times
-        # Average server power for estimation (will use actual in scheduling)
         avg_power = sum(s.power_ratio for s in self.servers) / len(self.servers)
         
-        def exec_time(mem, work):
-            """Calculate execution time with SGX penalty"""
-            penalty = calculate_penalty(mem)
-            return (work * penalty) / avg_power
+        # 1. Calculate split execution time (including existing penalties if any)
+        t_p1 = (part1.total_workload * calculate_penalty(part1.total_memory)) / avg_power
+        t_p2 = (part2.total_workload * calculate_penalty(part2.total_memory)) / avg_power
         
-        # Time if merged (with potential penalty)
-        t_merged = exec_time(merged_mem, merged_work)
+        # 2. Calculate communication time if separate
+        vol = 0.0
+        for l1 in part1.layers:
+            for l2 in part2.layers:
+                if self.G.has_edge(l1.id, l2.id): vol += self.G[l1.id][l2.id]['weight']
+                if self.G.has_edge(l2.id, l1.id): vol += self.G[l2.id][l1.id]['weight']
         
-        # Time if separated (both execute + communication)
-        t_p1 = exec_time(part1.total_memory, part1.total_workload)
-        t_p2 = exec_time(part2.total_memory, part2.total_workload)
+        if len(self.servers) == 1:
+            t_comm = 0.0
+        else:
+            t_comm = vol / self.bandwidth_per_ms if vol > 0 else 0.0
+            
+        # 3. Calculate paging overhead for separate partitions (sequential)
+        def paging_cost(p):
+            swap_mb = p.get_static_memory()
+            num_pages = math.ceil(swap_mb * 1024 / PAGE_SIZE_KB)
+            return (num_pages * PAGE_FAULT_OVERHEAD_MS + 
+                    swap_mb / (DEFAULT_PAGING_BW_MBPS / 1000.0) + 
+                    ENCLAVE_ENTRY_EXIT_OVERHEAD_MS)
         
-        # Communication time between partitions
-        # Use edge weight if available, otherwise use default
-        comm_data = 0.0
-        for layer1 in part1.layers:
-            for layer2 in part2.layers:
-                if self.G.has_edge(layer1.id, layer2.id):
-                    comm_data += self.G[layer1.id][layer2.id]['weight']
+        t_paging = paging_cost(part1) + paging_cost(part2)
         
-        t_comm = comm_data / self.bandwidth_per_ms if comm_data > 0 else 0.0
-        t_sep = t_p1 + t_p2 + t_comm
+        # 4. Calculate merged execution time
+        merged_workload = part1.total_workload + part2.total_workload
+        t_merged = (merged_workload * calculate_penalty(merged_mem)) / avg_power
+        t_paging_merged = paging_cost(temp_part)
         
-        # Merge if merged execution is faster than separated
-        return t_merged <= t_sep
+        # Merge if merged cost is lower or equal
+        return (t_merged + t_paging_merged) <= (t_p1 + t_p2 + t_comm + t_paging)
     
     def run(self):
         """
-        Algorithm 2: Graph Partitioning
-        
-        Creates partitions by:
-        1. Selecting mergeable edges
-        2. Merging adjacent layers/partitions based on merge_check
-        3. Handling orphan nodes
-        
-        Returns:
-            list: List of Partition objects
+        Main runner for MEDIA algorithm.
+        Stage 1: Select candidate edges.
+        Stage 2: Greedily merge partitions based on candidate edges and cost model.
         """
-        # Step 1: Get mergeable edges
+        # Initialize each layer as its own partition
+        self.node_to_partition = {}
+        for i, (nid, layer) in enumerate(self.layers_map.items()):
+            self.node_to_partition[nid] = Partition(i, [layer], self.G)
+            
+        # Stage 1: Get candidate edges
         edges_M = self._select_edges_for_partitioning()
         
-        partitions = []
-        self.node_to_partition = {}
-        
-        # Step 2: Process mergeable edges
-        for (u, v) in edges_M:
-            pu = self.node_to_partition.get(u)
-            pv = self.node_to_partition.get(v)
-            
-            # Case 1: Both nodes unassigned -> create new partition
-            if pu is None and pv is None:
-                new_part = Partition(len(partitions), [self.layers_map[u], self.layers_map[v]])
-                partitions.append(new_part)
-                self.node_to_partition[u] = new_part
-                self.node_to_partition[v] = new_part
-            
-            # Case 2: Both in different partitions -> try to merge
-            elif pu is not None and pv is not None and pu != pv:
-                if self._merge_check(pu, pv):
-                    # Merge pv into pu
-                    pu.layers.extend(pv.layers)
-                    pu.total_memory += pv.total_memory
-                    pu.total_workload += pv.total_workload
-                    
-                    # Update mappings
-                    for layer in pv.layers:
-                        self.node_to_partition[layer.id] = pu
-                    
-                    # Remove pv from partitions
-                    partitions.remove(pv)
-            
-            # Case 3: One assigned, one not -> try to add to existing
-            elif pu is not None or pv is not None:
-                existing = pu if pu is not None else pv
-                other_id = v if pu is not None else u
-                
-                if other_id not in self.node_to_partition:
-                    # Create temp partition for the single layer
-                    temp_part = Partition(-1, [self.layers_map[other_id]])
-                    
-                    if self._merge_check(existing, temp_part):
-                        # Add layer to existing partition
-                        existing.layers.append(self.layers_map[other_id])
-                        existing.total_memory += self.layers_map[other_id].memory
-                        existing.total_workload += self.layers_map[other_id].workload
-                        self.node_to_partition[other_id] = existing
-        
-        # Step 3: Handle orphan nodes (nodes not in any partition)
-        for node_id in self.G.nodes():
-            if node_id not in self.node_to_partition:
-                orphan_part = Partition(len(partitions), [self.layers_map[node_id]])
-                partitions.append(orphan_part)
-                self.node_to_partition[node_id] = orphan_part
-        
-        # Step 4: Renumber partitions to have consecutive IDs (0, 1, 2, ...)
-        # This is necessary because merging removes some partitions, leaving gaps
-        for new_id, p in enumerate(partitions):
-            p.id = new_id
-        
-        return partitions
-    
-    def _build_partition_graph(self, partitions):
-        """
-        Build partition dependency graph from original DAG
-        
-        Args:
-            partitions: List of Partition objects
-            
-        Returns:
-            nx.DiGraph: Graph where nodes are partition IDs and edges are dependencies
-        """
-        partition_graph = nx.DiGraph()
-        
-        # Add all partition nodes
-        for p in partitions:
-            partition_graph.add_node(p.id)
-        
-        # Add edges between partitions based on layer dependencies
-        for u, v in self.G.edges():
+        # Stage 2: Greedily merge
+        # Sort edges by communication volume to fill partitions 'heavy' edges first
+        sorted_edges = sorted(list(edges_M), 
+                           key=lambda e: self.G[e[0]][e[1]]['weight'], 
+                           reverse=True)
+
+        for (u, v) in sorted_edges:
             pu = self.node_to_partition[u]
             pv = self.node_to_partition[v]
             
-            # Only add edge if partitions are different
-            if pu.id != pv.id:
-                partition_graph.add_edge(pu.id, pv.id)
+            if pu != pv:
+                # Cycle detection: only merge if it doesn't break DAG
+                if not self._would_cause_cycle(pu, pv):
+                    if self._merge_check(pu, pv):
+                        # Merge pv into pu
+                        new_layers = list(set(pu.layers + pv.layers))
+                        pu_new = Partition(pu.id, new_layers, self.G)
+                        # Bulk update node map
+                        for l in new_layers:
+                            self.node_to_partition[l.id] = pu_new
         
-        return partition_graph
-    
-    def _compute_partition_priority(self, partition, partition_graph, partitions_list, memo):
-        """
-        Algorithm 3: Compute Partition Priority (Formula 11)
-        
-        Priority(p) = T(p) + C(p, succ) + max(Priority(succ))
-        
-        Args:
-            partition: Partition object
-            partition_graph: Dependency graph of partitions
-            partitions_list: List of all partitions (indexed by ID)
-            memo: Memoization dict
-            
-        Returns:
-            float: Priority value
-        """
-        # Check memo
-        if partition.id in memo:
-            return memo[partition.id]
-        
-        # Average server power for estimation
-        avg_power = sum(s.power_ratio for s in self.servers) / len(self.servers)
-        
-        # Base execution time (with potential penalty)
-        penalty = calculate_penalty(partition.total_memory)
-        t_exec = (partition.total_workload * penalty) / avg_power
-        
-        # Get successors
-        successors = list(partition_graph.successors(partition.id))
-        
-        # Base case: no successors
-        if not successors:
-            memo[partition.id] = t_exec
-            return t_exec
-        
-        # Recursive case: max successor priority + communication
-        max_succ_priority = max(
-            self._compute_partition_priority(partitions_list[succ_id], partition_graph, partitions_list, memo)
-            for succ_id in successors
-        )
-        
-        # Communication time estimation (use average edge weight)
-        comm_data = 0.0
-        succ_count = 0
-        for succ_id in successors:
-            succ = partitions_list[succ_id]
-            for layer1 in partition.layers:
-                for layer2 in succ.layers:
-                    if self.G.has_edge(layer1.id, layer2.id):
-                        comm_data += self.G[layer1.id][layer2.id]['weight']
-                        succ_count += 1
-        
-        t_comm = comm_data / self.bandwidth_per_ms if comm_data > 0 else 0.0
-        
-        priority = t_exec + t_comm + max_succ_priority
-        memo[partition.id] = priority
-        
-        return priority
+        # Finalize unique partitions
+        unique_parts = list(set(self.node_to_partition.values()))
+        # Re-assign IDs
+        for i, p in enumerate(unique_parts):
+            p.id = i
+        return unique_parts
     
     def schedule(self, partitions):
-        """
-        Algorithm 3: Priority-based Scheduling
+        if not partitions: return ScheduleResult("MEDIA", 0.0, {}, [])
+        partition_graph = nx.DiGraph()
+        for p in partitions: partition_graph.add_node(p.id)
+        for u, v in self.G.edges():
+            pu, pv = self.node_to_partition[u], self.node_to_partition[v]
+            if pu.id != pv.id: partition_graph.add_edge(pu.id, pv.id)
         
-        Assigns partitions to servers based on:
-        1. Priority (critical path)
-        2. Predecessor finish times
-        3. Minimum finish time heuristic
-        
-        Args:
-            partitions: List of Partition objects
-            
-        Returns:
-            float: Total inference time (max finish time)
-        """
-        if not partitions:
-            return 0.0
-        
-        # Build partition dependency graph
-        partition_graph = self._build_partition_graph(partitions)
-        
-        # Create indexed list for quick access
         partitions_list = {p.id: p for p in partitions}
+        priorities = self._compute_priorities(partition_graph, partitions_list)
+        # STRICT ENFORCEMENT: No fallback for cycles.
+        topo_order = list(nx.topological_sort(partition_graph))
+        topo_idx = {pid: i for i, pid in enumerate(topo_order)}
+            
+        sorted_partitions = sorted(partitions, key=lambda p: (priorities[p.id], -topo_idx[p.id]), reverse=True)
         
-        # Compute priorities for all partitions
-        memo = {}
-        priorities = {}
-        for p in partitions:
-            priorities[p.id] = self._compute_partition_priority(p, partition_graph, partitions_list, memo)
-        
-        # Sort partitions by priority (descending)
-        sorted_partitions = sorted(partitions, key=lambda p: -priorities[p.id])
-        
-        # Scheduling state
         server_free_time = {s.id: 0.0 for s in self.servers}
-        partition_assignment = {}  # partition_id -> server
-        partition_finish = {}      # partition_id -> finish_time
+        server_schedule = {s.id: [] for s in self.servers}
+        assignment, finish = {}, {}
         
-        # Assign each partition to the server with minimum finish time
         for p in sorted_partitions:
-            best_server = None
-            best_finish = float('inf')
+            best_s, best_ft = None, float('inf')
+            best_s, best_ft = None, float('inf')
             
-            for server in self.servers:
-                # Calculate ready time (when all predecessors are done + communication)
-                ready_time = 0.0
+            # Universal Paging Cost for Partition P (Loading Static Weights)
+            swap_mb = p.get_static_memory()
+            num_pages = math.ceil(swap_mb * 1024 / PAGE_SIZE_KB)
+            paging_cost = (num_pages * PAGE_FAULT_OVERHEAD_MS + 
+                           swap_mb / (DEFAULT_PAGING_BW_MBPS / 1000.0) + 
+                           ENCLAVE_ENTRY_EXIT_OVERHEAD_MS)
+
+            for s in self.servers:
+                dependency_ready = 0.0
                 
+                # Check dependencies
                 for pred_id in partition_graph.predecessors(p.id):
-                    pred_server = partition_assignment[pred_id]
-                    pred_finish = partition_finish[pred_id]
+                    if pred_id not in assignment: continue
+                    pred_s, pred_ft = assignment[pred_id], finish[pred_id]
                     
-                    # Communication or paging overhead
-                    if pred_server.id != server.id:
-                        # Cross-server: network communication
-                        comm_data = 0.0
-                        pred = partitions_list[pred_id]
-                        for layer1 in pred.layers:
-                            for layer2 in p.layers:
-                                if self.G.has_edge(layer1.id, layer2.id):
-                                    comm_data += self.G[layer1.id][layer2.id]['weight']
-                        
-                        comm_time = comm_data / self.bandwidth_per_ms
-                        ready_time = max(ready_time, pred_finish + comm_time)
+                    if pred_s.id != s.id:
+                        # Network communication needed
+                        comm_data = sum(self.G[l1.id][l2.id]['weight'] for l1 in partitions_list[pred_id].layers for l2 in p.layers if self.G.has_edge(l1.id, l2.id))
+                        arrival = pred_ft + comm_data / self.bandwidth_per_ms
+                        dependency_ready = max(dependency_ready, arrival)
                     else:
-                        # Same server: SGX context switch paging overhead
-                        pred = partitions_list[pred_id]
-                        swap_out = min(pred.total_memory, EPC_EFFECTIVE_MB)
-                        swap_in = min(p.total_memory, EPC_EFFECTIVE_MB)
-                        paging_time = (swap_out + swap_in) / PAGING_BANDWIDTH_MB_PER_MS
-                        
-                        ready_time = max(ready_time, pred_finish + paging_time)
+                        # Local dependency, data ready immediately when pred finishes
+                        # (We removed the conditional local swapping here, as we apply universal swapping below)
+                        dependency_ready = max(dependency_ready, pred_ft)
                 
-                # Start time is max of server free and data ready
-                start_time = max(server_free_time[server.id], ready_time)
+                # Scheduling:
+                # 1. We can start loading when Server is free AND Data is ready (dependencies met)
+                #    Actually, ensuring data is ready before loading is safer.
+                # 2. Loading consumes Server CPU (ELDU).
                 
-                # Execution time with penalty
-                penalty = calculate_penalty(p.total_memory)
-                exec_time = (p.total_workload * penalty) / server.power_ratio
+                start_loading = max(server_free_time[s.id], dependency_ready)
+                start_exec = start_loading + paging_cost
                 
-                finish_time = start_time + exec_time
+                exec_t = (p.total_workload * calculate_penalty(p.total_memory)) / s.power_ratio
+                ft = start_exec + exec_t
                 
-                # Track best option
-                if finish_time < best_finish:
-                    best_finish = finish_time
-                    best_server = server
+                if ft < best_ft: best_ft, best_s, final_exec_t = ft, s, exec_t
             
-            # Assign partition to best server
-            partition_assignment[p.id] = best_server
-            partition_finish[p.id] = best_finish
-            server_free_time[best_server.id] = best_finish
+            assignment[p.id], finish[p.id] = best_s, best_ft
+            server_free_time[best_s.id] = best_ft
+            # Log the event. Visualizer expects 'start' to be execution start? 
+            # Or should it include loading? 
+            # Usually "Latency" includes everything. 
+            # Let's log the whole block [Start_Load -> Finish_Exec] as the partition event for simplicity,
+            # or we can verify how other algos do it. 
+            # DINA/OCC: data_ready includes paging. start_t = max(free, data_ready). 
+            # So they effectively model "Paging happens BEFORE start_t" (hidden latency) OR "Paging pushes start_t back".
+            # Wait, DINA: `data_ready = prev + paging`. `start = max(free, data_ready)`.
+            # If free >> data_ready, Paging is hidden? No.
+            # If free < data_ready, Start is delayed by Paging. 
+            # This implies Paging happens in parallel or is just a delay?
+            # Correct model: Paging consumes CPU.
+            # My new logic `start_exec = max(free, ready) + paging` explicitly consumes CPU.
+            server_schedule[best_s.id].append({'start': best_ft - final_exec_t, 'end': best_ft, 'partition_id': p.id, 'partition': p})
+            # Note: The above append only highlights EXECUTION time. The "Gap" before it is Paging.
+            # This matches the Breakdown script logic (Gap = Paging).
+            
+        return ScheduleResult("MEDIA", max(finish.values()), server_schedule, partitions)
+
+    def _compute_priorities(self, partition_graph, partitions_list):
+        priorities = {}
+        avg_p = sum(s.power_ratio for s in self.servers) / len(self.servers)
         
-        # Return max finish time
-        return max(partition_finish.values())
+        # Iterative Priority Calculation (Reverse Topological Order)
+        try:
+            topo_order = list(nx.topological_sort(partition_graph))
+        except nx.NetworkXUnfeasible:
+            # Cycle detected! Fallback: use simple node list (priorities will be approximate)
+            # This can happen if partitioning logic constraints were relaxed too much.
+            topo_order = list(partition_graph.nodes())
+        
+        for pid in reversed(topo_order):
+            partition = partitions_list[pid]
+            t_exec = (partition.total_workload * calculate_penalty(partition.total_memory)) / avg_p
+            
+            max_succ_priority = 0
+            successors = list(partition_graph.successors(pid))
+            if successors:
+                # Use .get() with default 0.0 to handle potential cycles where a successor 
+                # might not have been processed yet in the fallback order.
+                max_succ_priority = max(priorities.get(sid, 0.0) for sid in successors)
+            
+            comm_data = sum(self.G[l1.id][l2.id]['weight'] for sid in successors for l1 in partition.layers for l2 in partitions_list[sid].layers if self.G.has_edge(l1.id, l2.id))
+            priorities[pid] = t_exec + comm_data / self.bandwidth_per_ms + max_succ_priority
+            
+        return priorities
