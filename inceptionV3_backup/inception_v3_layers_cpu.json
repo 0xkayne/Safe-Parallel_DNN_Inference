@@ -1,0 +1,6329 @@
+{
+  "model": "InceptionV3",
+  "timestamp": "2025-12-24 00:37:17",
+  "layers": [
+    {
+      "name": "input",
+      "type": "SecretInputLayer",
+      "group": "Stem-Part1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.009999999999999998,
+        "std_ms": 1.734723475976807e-18,
+        "min_ms": 0.01,
+        "max_ms": 0.01
+      },
+      "input_bytes": 1072812,
+      "output_bytes": 1072812,
+      "input_shape": [
+        1,
+        3,
+        299,
+        299
+      ],
+      "output_shape": [
+        1,
+        3,
+        299,
+        299
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "stem_conv1",
+      "type": "SGXConvBase",
+      "group": "Stem-Part1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 2.521530300001018,
+        "std_ms": 0.30707698262687727,
+        "min_ms": 2.310693999987734,
+        "max_ms": 3.385031999982857
+      },
+      "input_bytes": 2841728,
+      "output_bytes": 2841728,
+      "input_shape": [
+        1,
+        32,
+        149,
+        149
+      ],
+      "output_shape": [
+        1,
+        32,
+        149,
+        149
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "stem_relu1",
+      "type": "SecretReLULayer",
+      "group": "Stem-Part1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.10799029999759568,
+        "std_ms": 0.003357859257826383,
+        "min_ms": 0.1043080000044938,
+        "max_ms": 0.11544899999194058
+      },
+      "input_bytes": 2841728,
+      "output_bytes": 2841728,
+      "input_shape": [
+        1,
+        32,
+        149,
+        149
+      ],
+      "output_shape": [
+        1,
+        32,
+        149,
+        149
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "stem_conv2",
+      "type": "SGXConvBase",
+      "group": "Stem-Part1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 3.15339179999512,
+        "std_ms": 0.0752495157911219,
+        "min_ms": 2.99573600000258,
+        "max_ms": 3.2333649999998215
+      },
+      "input_bytes": 2765952,
+      "output_bytes": 2765952,
+      "input_shape": [
+        1,
+        32,
+        147,
+        147
+      ],
+      "output_shape": [
+        1,
+        32,
+        147,
+        147
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "stem_relu2",
+      "type": "SecretReLULayer",
+      "group": "Stem-Part1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.10516199999699438,
+        "std_ms": 0.003184598837874772,
+        "min_ms": 0.10252900000295995,
+        "max_ms": 0.11192099998424965
+      },
+      "input_bytes": 2765952,
+      "output_bytes": 2765952,
+      "input_shape": [
+        1,
+        32,
+        147,
+        147
+      ],
+      "output_shape": [
+        1,
+        32,
+        147,
+        147
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "stem_conv3",
+      "type": "SGXConvBase",
+      "group": "Stem-Part2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 12.668299200004185,
+        "std_ms": 1.8544903681754024,
+        "min_ms": 10.229719000022897,
+        "max_ms": 16.12658400000555
+      },
+      "input_bytes": 5531904,
+      "output_bytes": 5531904,
+      "input_shape": [
+        1,
+        64,
+        147,
+        147
+      ],
+      "output_shape": [
+        1,
+        64,
+        147,
+        147
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "stem_relu3",
+      "type": "SecretReLULayer",
+      "group": "Stem-Part2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.20815059999677032,
+        "std_ms": 0.016538073116540385,
+        "min_ms": 0.19611700000154997,
+        "max_ms": 0.2553779999914241
+      },
+      "input_bytes": 5531904,
+      "output_bytes": 5531904,
+      "input_shape": [
+        1,
+        64,
+        147,
+        147
+      ],
+      "output_shape": [
+        1,
+        64,
+        147,
+        147
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "stem_pool1",
+      "type": "SecretMaxpool2dLayer",
+      "group": "Stem-Part2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 9.064207500003363,
+        "std_ms": 0.529657629039465,
+        "min_ms": 8.592862000000423,
+        "max_ms": 9.988786999997501
+      },
+      "input_bytes": 1364224,
+      "output_bytes": 1364224,
+      "input_shape": [
+        1,
+        64,
+        73,
+        73
+      ],
+      "output_shape": [
+        1,
+        64,
+        73,
+        73
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "stem_conv4",
+      "type": "SGXConvBase",
+      "group": "Stem-Part3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 3.6670734999972865,
+        "std_ms": 0.01532575946401648,
+        "min_ms": 3.649702000018351,
+        "max_ms": 3.7063340000145217
+      },
+      "input_bytes": 1705280,
+      "output_bytes": 1705280,
+      "input_shape": [
+        1,
+        80,
+        73,
+        73
+      ],
+      "output_shape": [
+        1,
+        80,
+        73,
+        73
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "stem_relu4",
+      "type": "SecretReLULayer",
+      "group": "Stem-Part3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.06557300000338273,
+        "std_ms": 0.0032315977472098015,
+        "min_ms": 0.06280400000946429,
+        "max_ms": 0.072759999994787
+      },
+      "input_bytes": 1705280,
+      "output_bytes": 1705280,
+      "input_shape": [
+        1,
+        80,
+        73,
+        73
+      ],
+      "output_shape": [
+        1,
+        80,
+        73,
+        73
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "stem_conv5",
+      "type": "SGXConvBase",
+      "group": "Stem-Part3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 11.908254900001225,
+        "std_ms": 1.2351310720150106,
+        "min_ms": 11.23861799999304,
+        "max_ms": 14.953903000019864
+      },
+      "input_bytes": 3871488,
+      "output_bytes": 3871488,
+      "input_shape": [
+        1,
+        192,
+        71,
+        71
+      ],
+      "output_shape": [
+        1,
+        192,
+        71,
+        71
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "stem_relu5",
+      "type": "SecretReLULayer",
+      "group": "Stem-Part3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.14421290000541376,
+        "std_ms": 0.0052658754111290125,
+        "min_ms": 0.13945700001727346,
+        "max_ms": 0.15661099999420003
+      },
+      "input_bytes": 3871488,
+      "output_bytes": 3871488,
+      "input_shape": [
+        1,
+        192,
+        71,
+        71
+      ],
+      "output_shape": [
+        1,
+        192,
+        71,
+        71
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "stem_pool2",
+      "type": "SecretMaxpool2dLayer",
+      "group": "Stem-Part4",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 6.273584100000562,
+        "std_ms": 0.3454766562935402,
+        "min_ms": 5.958212999985335,
+        "max_ms": 6.868388000015102
+      },
+      "input_bytes": 940800,
+      "output_bytes": 940800,
+      "input_shape": [
+        1,
+        192,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        192,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a1_b1_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-A1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.621194400002878,
+        "std_ms": 0.009912469345690393,
+        "min_ms": 0.6047100000046157,
+        "max_ms": 0.6364479999945161
+      },
+      "input_bytes": 313600,
+      "output_bytes": 313600,
+      "input_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a1_b1_relu",
+      "type": "SecretReLULayer",
+      "group": "Inception-A1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.0106450000004088,
+        "std_ms": 0.0018622867096762172,
+        "min_ms": 0.009849000008443909,
+        "max_ms": 0.016211999991355697
+      },
+      "input_bytes": 313600,
+      "output_bytes": 313600,
+      "input_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a1_b2_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-A1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.6142264000061459,
+        "std_ms": 0.005157219483287837,
+        "min_ms": 0.607052000020758,
+        "max_ms": 0.625751999990598
+      },
+      "input_bytes": 313600,
+      "output_bytes": 313600,
+      "input_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a1_b2_relu1",
+      "type": "SecretReLULayer",
+      "group": "Inception-A1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.01071830000398677,
+        "std_ms": 0.0016899528450466524,
+        "min_ms": 0.009776000013062003,
+        "max_ms": 0.015105000017001657
+      },
+      "input_bytes": 313600,
+      "output_bytes": 313600,
+      "input_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a1_b2_3x3",
+      "type": "SGXConvBase",
+      "group": "Inception-A1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.261206899988565,
+        "std_ms": 0.013107821961971905,
+        "min_ms": 1.2509259999831102,
+        "max_ms": 1.297155999992583
+      },
+      "input_bytes": 470400,
+      "output_bytes": 470400,
+      "input_shape": [
+        1,
+        96,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        96,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a1_b2_relu2",
+      "type": "SecretReLULayer",
+      "group": "Inception-A1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.012288499999613123,
+        "std_ms": 0.0002544135407125391,
+        "min_ms": 0.012045000005400652,
+        "max_ms": 0.012918999999556036
+      },
+      "input_bytes": 470400,
+      "output_bytes": 470400,
+      "input_shape": [
+        1,
+        96,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        96,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a1_b3_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-A1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.3904140999992478,
+        "std_ms": 0.008290103751172185,
+        "min_ms": 0.3787569999929019,
+        "max_ms": 0.403790999996545
+      },
+      "input_bytes": 235200,
+      "output_bytes": 235200,
+      "input_shape": [
+        1,
+        48,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        48,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a1_b3_relu1",
+      "type": "SecretReLULayer",
+      "group": "Inception-A1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.017173300000195013,
+        "std_ms": 0.0038830070583866635,
+        "min_ms": 0.011468999986163908,
+        "max_ms": 0.025558999993791076
+      },
+      "input_bytes": 235200,
+      "output_bytes": 235200,
+      "input_shape": [
+        1,
+        48,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        48,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a1_b3_3x3_1",
+      "type": "SGXConvBase",
+      "group": "Inception-A1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.6162850999999137,
+        "std_ms": 0.007654613893852183,
+        "min_ms": 0.5995690000020204,
+        "max_ms": 0.6237309999903573
+      },
+      "input_bytes": 313600,
+      "output_bytes": 313600,
+      "input_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a1_b3_relu2",
+      "type": "SecretReLULayer",
+      "group": "Inception-A1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.01069400000517362,
+        "std_ms": 0.0020714380460378147,
+        "min_ms": 0.009763000008433664,
+        "max_ms": 0.01689199999077573
+      },
+      "input_bytes": 313600,
+      "output_bytes": 313600,
+      "input_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a1_b3_3x3_2",
+      "type": "SGXConvBase",
+      "group": "Inception-A1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.62191949999999,
+        "std_ms": 0.007948807384316033,
+        "min_ms": 0.6110509999928126,
+        "max_ms": 0.6381999999973686
+      },
+      "input_bytes": 313600,
+      "output_bytes": 313600,
+      "input_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a1_b3_relu3",
+      "type": "SecretReLULayer",
+      "group": "Inception-A1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.01013190000094255,
+        "std_ms": 0.00042174837276927205,
+        "min_ms": 0.009832999978698354,
+        "max_ms": 0.01134199999341945
+      },
+      "input_bytes": 313600,
+      "output_bytes": 313600,
+      "input_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a1_b4_pool",
+      "type": "SecretMaxpool2dLayer",
+      "group": "Inception-A1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 5.9672489000007545,
+        "std_ms": 0.015270566456530738,
+        "min_ms": 5.938218000011375,
+        "max_ms": 5.983123000021351
+      },
+      "input_bytes": 940800,
+      "output_bytes": 940800,
+      "input_shape": [
+        1,
+        192,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        192,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a1_b4_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-A1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.20949269999732678,
+        "std_ms": 0.00652342495610246,
+        "min_ms": 0.20313699999974233,
+        "max_ms": 0.22219999999606443
+      },
+      "input_bytes": 156800,
+      "output_bytes": 156800,
+      "input_shape": [
+        1,
+        32,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        32,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a1_b4_relu",
+      "type": "SecretReLULayer",
+      "group": "Inception-A1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.01116969999657158,
+        "std_ms": 0.001983418114398928,
+        "min_ms": 0.009865000009767755,
+        "max_ms": 0.015143000013040364
+      },
+      "input_bytes": 156800,
+      "output_bytes": 156800,
+      "input_shape": [
+        1,
+        32,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        32,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a1_concat",
+      "type": "SecretConcatenateLayer",
+      "group": "Inception-A1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.009999999999999998,
+        "std_ms": 1.734723475976807e-18,
+        "min_ms": 0.01,
+        "max_ms": 0.01
+      },
+      "input_bytes": 1254400,
+      "output_bytes": 1254400,
+      "input_shape": [
+        1,
+        256,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        256,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a2_b1_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-A2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.6146224000048051,
+        "std_ms": 0.00472554691601561,
+        "min_ms": 0.6084949999944911,
+        "max_ms": 0.6232960000147614
+      },
+      "input_bytes": 313600,
+      "output_bytes": 313600,
+      "input_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a2_b1_relu",
+      "type": "SecretReLULayer",
+      "group": "Inception-A2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.010492500001646476,
+        "std_ms": 0.0013161473479254776,
+        "min_ms": 0.00982599999588274,
+        "max_ms": 0.014413999991802484
+      },
+      "input_bytes": 313600,
+      "output_bytes": 313600,
+      "input_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a2_b2_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-A2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.6184566000001723,
+        "std_ms": 0.00403417509168274,
+        "min_ms": 0.6094689999827096,
+        "max_ms": 0.6243180000069515
+      },
+      "input_bytes": 313600,
+      "output_bytes": 313600,
+      "input_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a2_b2_relu1",
+      "type": "SecretReLULayer",
+      "group": "Inception-A2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.010497900001382732,
+        "std_ms": 0.0016144410408264582,
+        "min_ms": 0.009871999992583369,
+        "max_ms": 0.015338999986624913
+      },
+      "input_bytes": 313600,
+      "output_bytes": 313600,
+      "input_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a2_b2_3x3",
+      "type": "SGXConvBase",
+      "group": "Inception-A2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.2608178000022008,
+        "std_ms": 0.007275664997906055,
+        "min_ms": 1.2473600000078022,
+        "max_ms": 1.2705660000165153
+      },
+      "input_bytes": 470400,
+      "output_bytes": 470400,
+      "input_shape": [
+        1,
+        96,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        96,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a2_b2_relu2",
+      "type": "SecretReLULayer",
+      "group": "Inception-A2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.01236790000405108,
+        "std_ms": 0.0003367005976557588,
+        "min_ms": 0.012052000016637976,
+        "max_ms": 0.013291000016124599
+      },
+      "input_bytes": 470400,
+      "output_bytes": 470400,
+      "input_shape": [
+        1,
+        96,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        96,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a2_b3_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-A2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.38121300000000247,
+        "std_ms": 0.007369326823639273,
+        "min_ms": 0.37050899999258036,
+        "max_ms": 0.3950370000040948
+      },
+      "input_bytes": 235200,
+      "output_bytes": 235200,
+      "input_shape": [
+        1,
+        48,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        48,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a2_b3_relu1",
+      "type": "SecretReLULayer",
+      "group": "Inception-A2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.019216300000834963,
+        "std_ms": 0.00013360616797153873,
+        "min_ms": 0.019084999991036966,
+        "max_ms": 0.019550999979855987
+      },
+      "input_bytes": 235200,
+      "output_bytes": 235200,
+      "input_shape": [
+        1,
+        48,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        48,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a2_b3_3x3_1",
+      "type": "SGXConvBase",
+      "group": "Inception-A2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.6172353000010844,
+        "std_ms": 0.006824084101789969,
+        "min_ms": 0.6076619999930699,
+        "max_ms": 0.6283780000160277
+      },
+      "input_bytes": 313600,
+      "output_bytes": 313600,
+      "input_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a2_b3_relu2",
+      "type": "SecretReLULayer",
+      "group": "Inception-A2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.009894499996221384,
+        "std_ms": 0.00012628796846779182,
+        "min_ms": 0.00975700001504265,
+        "max_ms": 0.010182000011127457
+      },
+      "input_bytes": 313600,
+      "output_bytes": 313600,
+      "input_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a2_b3_3x3_2",
+      "type": "SGXConvBase",
+      "group": "Inception-A2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.6154278000053637,
+        "std_ms": 0.005438786239636034,
+        "min_ms": 0.6104080000000067,
+        "max_ms": 0.6283929999995053
+      },
+      "input_bytes": 313600,
+      "output_bytes": 313600,
+      "input_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a2_b3_relu3",
+      "type": "SecretReLULayer",
+      "group": "Inception-A2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.012209099995175166,
+        "std_ms": 0.004214476300114997,
+        "min_ms": 0.009796000000505956,
+        "max_ms": 0.02203299999337105
+      },
+      "input_bytes": 313600,
+      "output_bytes": 313600,
+      "input_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a2_b4_pool",
+      "type": "SecretMaxpool2dLayer",
+      "group": "Inception-A2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 6.182423399999948,
+        "std_ms": 0.3756181348388524,
+        "min_ms": 5.997193000013112,
+        "max_ms": 7.284784000006539
+      },
+      "input_bytes": 940800,
+      "output_bytes": 940800,
+      "input_shape": [
+        1,
+        192,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        192,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a2_b4_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-A2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.2120060999970974,
+        "std_ms": 0.006468006795937437,
+        "min_ms": 0.2032710000037241,
+        "max_ms": 0.2234520000001794
+      },
+      "input_bytes": 156800,
+      "output_bytes": 156800,
+      "input_shape": [
+        1,
+        32,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        32,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a2_b4_relu",
+      "type": "SecretReLULayer",
+      "group": "Inception-A2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.011750000001597982,
+        "std_ms": 0.002280225735706942,
+        "min_ms": 0.009941999991269768,
+        "max_ms": 0.015281000003142253
+      },
+      "input_bytes": 156800,
+      "output_bytes": 156800,
+      "input_shape": [
+        1,
+        32,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        32,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a2_concat",
+      "type": "SecretConcatenateLayer",
+      "group": "Inception-A2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.009999999999999998,
+        "std_ms": 1.734723475976807e-18,
+        "min_ms": 0.01,
+        "max_ms": 0.01
+      },
+      "input_bytes": 1254400,
+      "output_bytes": 1254400,
+      "input_shape": [
+        1,
+        256,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        256,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a3_b1_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-A3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.6170903999986876,
+        "std_ms": 0.005753682264401266,
+        "min_ms": 0.6040129999860255,
+        "max_ms": 0.6232419999889771
+      },
+      "input_bytes": 313600,
+      "output_bytes": 313600,
+      "input_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a3_b1_relu",
+      "type": "SecretReLULayer",
+      "group": "Inception-A3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.010052299998619674,
+        "std_ms": 0.00023812267608835537,
+        "min_ms": 0.009826999985307339,
+        "max_ms": 0.010673999980781446
+      },
+      "input_bytes": 313600,
+      "output_bytes": 313600,
+      "input_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a3_b2_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-A3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.6159538000076736,
+        "std_ms": 0.006348570186576533,
+        "min_ms": 0.6033079999951951,
+        "max_ms": 0.6252920000235918
+      },
+      "input_bytes": 313600,
+      "output_bytes": 313600,
+      "input_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a3_b2_relu1",
+      "type": "SecretReLULayer",
+      "group": "Inception-A3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.011678100000267477,
+        "std_ms": 0.0034047175959244563,
+        "min_ms": 0.009736999999176987,
+        "max_ms": 0.018621000009488853
+      },
+      "input_bytes": 313600,
+      "output_bytes": 313600,
+      "input_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a3_b2_3x3",
+      "type": "SGXConvBase",
+      "group": "Inception-A3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.2576574999997092,
+        "std_ms": 0.005091015857542374,
+        "min_ms": 1.2512060000062775,
+        "max_ms": 1.269075000010389
+      },
+      "input_bytes": 470400,
+      "output_bytes": 470400,
+      "input_shape": [
+        1,
+        96,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        96,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a3_b2_relu2",
+      "type": "SecretReLULayer",
+      "group": "Inception-A3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.012202400000660418,
+        "std_ms": 0.0005779991734524954,
+        "min_ms": 0.011804999985542963,
+        "max_ms": 0.013899000009587326
+      },
+      "input_bytes": 470400,
+      "output_bytes": 470400,
+      "input_shape": [
+        1,
+        96,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        96,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a3_b3_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-A3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.3840546999981598,
+        "std_ms": 0.00637838127223886,
+        "min_ms": 0.3771799999867653,
+        "max_ms": 0.3997110000000248
+      },
+      "input_bytes": 235200,
+      "output_bytes": 235200,
+      "input_shape": [
+        1,
+        48,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        48,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a3_b3_relu1",
+      "type": "SecretReLULayer",
+      "group": "Inception-A3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.019150799997191825,
+        "std_ms": 0.00011770369514180521,
+        "min_ms": 0.019017999989046075,
+        "max_ms": 0.01936699999305347
+      },
+      "input_bytes": 235200,
+      "output_bytes": 235200,
+      "input_shape": [
+        1,
+        48,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        48,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a3_b3_3x3_1",
+      "type": "SGXConvBase",
+      "group": "Inception-A3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.6143396000055645,
+        "std_ms": 0.006298686530777206,
+        "min_ms": 0.6083240000123169,
+        "max_ms": 0.6280030000027637
+      },
+      "input_bytes": 313600,
+      "output_bytes": 313600,
+      "input_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a3_b3_relu2",
+      "type": "SecretReLULayer",
+      "group": "Inception-A3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.010533200000395482,
+        "std_ms": 0.0017064671488478454,
+        "min_ms": 0.009788999989268632,
+        "max_ms": 0.015643999972780875
+      },
+      "input_bytes": 313600,
+      "output_bytes": 313600,
+      "input_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a3_b3_3x3_2",
+      "type": "SGXConvBase",
+      "group": "Inception-A3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.6155993999925613,
+        "std_ms": 0.005653972607677436,
+        "min_ms": 0.6077029999858041,
+        "max_ms": 0.6234139999889976
+      },
+      "input_bytes": 313600,
+      "output_bytes": 313600,
+      "input_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a3_b3_relu3",
+      "type": "SecretReLULayer",
+      "group": "Inception-A3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.011281999994139369,
+        "std_ms": 0.002977847344441221,
+        "min_ms": 0.009850999987293108,
+        "max_ms": 0.01946599999769205
+      },
+      "input_bytes": 313600,
+      "output_bytes": 313600,
+      "input_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        64,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a3_b4_pool",
+      "type": "SecretMaxpool2dLayer",
+      "group": "Inception-A3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 5.987122300001602,
+        "std_ms": 0.019120570215201978,
+        "min_ms": 5.948756000009325,
+        "max_ms": 6.009391999981517
+      },
+      "input_bytes": 940800,
+      "output_bytes": 940800,
+      "input_shape": [
+        1,
+        192,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        192,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a3_b4_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-A3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.21022309999807476,
+        "std_ms": 0.006601942762138117,
+        "min_ms": 0.20247800000561256,
+        "max_ms": 0.2231750000021293
+      },
+      "input_bytes": 156800,
+      "output_bytes": 156800,
+      "input_shape": [
+        1,
+        32,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        32,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a3_b4_relu",
+      "type": "SecretReLULayer",
+      "group": "Inception-A3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.010629899998093606,
+        "std_ms": 0.0015259885658822612,
+        "min_ms": 0.009889000011753524,
+        "max_ms": 0.015100000013035242
+      },
+      "input_bytes": 156800,
+      "output_bytes": 156800,
+      "input_shape": [
+        1,
+        32,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        32,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_a3_concat",
+      "type": "SecretConcatenateLayer",
+      "group": "Inception-A3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.009999999999999998,
+        "std_ms": 1.734723475976807e-18,
+        "min_ms": 0.01,
+        "max_ms": 0.01
+      },
+      "input_bytes": 1254400,
+      "output_bytes": 1254400,
+      "input_shape": [
+        1,
+        256,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        256,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "reduction_a_b1_3x3",
+      "type": "SGXConvBase",
+      "group": "Reduction-A",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 4.350112800000261,
+        "std_ms": 0.026379740073582698,
+        "min_ms": 4.318066999985604,
+        "max_ms": 4.411299999986795
+      },
+      "input_bytes": 443904,
+      "output_bytes": 443904,
+      "input_shape": [
+        1,
+        384,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        384,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "reduction_a_b1_relu",
+      "type": "SecretReLULayer",
+      "group": "Reduction-A",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.01188270000227476,
+        "std_ms": 0.0001641225398057012,
+        "min_ms": 0.01168200000734032,
+        "max_ms": 0.012301999987585077
+      },
+      "input_bytes": 443904,
+      "output_bytes": 443904,
+      "input_shape": [
+        1,
+        384,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        384,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "reduction_a_b2_1x1",
+      "type": "SGXConvBase",
+      "group": "Reduction-A",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 2.8453260999981467,
+        "std_ms": 0.010396270991852953,
+        "min_ms": 2.830477000003384,
+        "max_ms": 2.8624249999893436
+      },
+      "input_bytes": 940800,
+      "output_bytes": 940800,
+      "input_shape": [
+        1,
+        192,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        192,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "reduction_a_b2_relu1",
+      "type": "SecretReLULayer",
+      "group": "Reduction-A",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.027495999998450316,
+        "std_ms": 0.001160712285048802,
+        "min_ms": 0.026628000000528118,
+        "max_ms": 0.02994100000819344
+      },
+      "input_bytes": 940800,
+      "output_bytes": 940800,
+      "input_shape": [
+        1,
+        192,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        192,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "reduction_a_b2_3x3",
+      "type": "SGXConvBase",
+      "group": "Reduction-A",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 2.9030073000001266,
+        "std_ms": 0.08371794587358118,
+        "min_ms": 2.8329480000195417,
+        "max_ms": 3.1178229999966334
+      },
+      "input_bytes": 940800,
+      "output_bytes": 940800,
+      "input_shape": [
+        1,
+        192,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        192,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "reduction_a_b2_relu2",
+      "type": "SecretReLULayer",
+      "group": "Reduction-A",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.028126199995881507,
+        "std_ms": 0.0017932228454859197,
+        "min_ms": 0.026481999981342597,
+        "max_ms": 0.03314500000328735
+      },
+      "input_bytes": 940800,
+      "output_bytes": 940800,
+      "input_shape": [
+        1,
+        192,
+        35,
+        35
+      ],
+      "output_shape": [
+        1,
+        192,
+        35,
+        35
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "reduction_a_b2_3x3_stride2",
+      "type": "SGXConvBase",
+      "group": "Reduction-A",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 4.349945100003083,
+        "std_ms": 0.02064465929147916,
+        "min_ms": 4.3282400000066446,
+        "max_ms": 4.3988220000130696
+      },
+      "input_bytes": 443904,
+      "output_bytes": 443904,
+      "input_shape": [
+        1,
+        384,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        384,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "reduction_a_b2_relu3",
+      "type": "SecretReLULayer",
+      "group": "Reduction-A",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.012213700003371741,
+        "std_ms": 0.0014271141558632877,
+        "min_ms": 0.011483999998063155,
+        "max_ms": 0.01638000000525608
+      },
+      "input_bytes": 443904,
+      "output_bytes": 443904,
+      "input_shape": [
+        1,
+        384,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        384,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "reduction_a_b3_pool",
+      "type": "SecretMaxpool2dLayer",
+      "group": "Reduction-A",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.914316099998814,
+        "std_ms": 0.016230902066500127,
+        "min_ms": 1.8925210000020343,
+        "max_ms": 1.9408510000005208
+      },
+      "input_bytes": 295936,
+      "output_bytes": 295936,
+      "input_shape": [
+        1,
+        256,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        256,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "reduction_a_concat",
+      "type": "SecretConcatenateLayer",
+      "group": "Reduction-A",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.009999999999999998,
+        "std_ms": 1.734723475976807e-18,
+        "min_ms": 0.01,
+        "max_ms": 0.01
+      },
+      "input_bytes": 887808,
+      "output_bytes": 887808,
+      "input_shape": [
+        1,
+        768,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        768,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b1_b1_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-B1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.1705755000008367,
+        "std_ms": 0.01105284279721315,
+        "min_ms": 1.1546739999914735,
+        "max_ms": 1.1940290000040932
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b1_b1_relu",
+      "type": "SecretReLULayer",
+      "group": "Inception-B1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.018285900003434108,
+        "std_ms": 0.0002187498329870191,
+        "min_ms": 0.018041000004132002,
+        "max_ms": 0.01887499999497777
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b1_b2_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-B1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.5630194000019628,
+        "std_ms": 0.007997170104658195,
+        "min_ms": 0.5541410000091673,
+        "max_ms": 0.5835870000225896
+      },
+      "input_bytes": 147968,
+      "output_bytes": 147968,
+      "input_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b1_b2_relu1",
+      "type": "SecretReLULayer",
+      "group": "Inception-B1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.012092699998333956,
+        "std_ms": 0.00537927210721573,
+        "min_ms": 0.009616999989248143,
+        "max_ms": 0.027657999993380145
+      },
+      "input_bytes": 147968,
+      "output_bytes": 147968,
+      "input_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b1_b2_3x3",
+      "type": "SGXConvBase",
+      "group": "Inception-B1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.1634406000013087,
+        "std_ms": 0.005105163273598597,
+        "min_ms": 1.157898000002433,
+        "max_ms": 1.1763239999993402
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b1_b2_relu2",
+      "type": "SecretReLULayer",
+      "group": "Inception-B1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.011293500000419954,
+        "std_ms": 0.0011920813926853484,
+        "min_ms": 0.010545999998612388,
+        "max_ms": 0.014362999991135439
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b1_b3_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-B1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.5596362000034105,
+        "std_ms": 0.006578509147981817,
+        "min_ms": 0.5474699999865607,
+        "max_ms": 0.5687200000181747
+      },
+      "input_bytes": 147968,
+      "output_bytes": 147968,
+      "input_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b1_b3_relu1",
+      "type": "SecretReLULayer",
+      "group": "Inception-B1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.009883900000318135,
+        "std_ms": 0.000108778174529009,
+        "min_ms": 0.009763000008433664,
+        "max_ms": 0.01015500001244618
+      },
+      "input_bytes": 147968,
+      "output_bytes": 147968,
+      "input_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b1_b3_3x3_1",
+      "type": "SGXConvBase",
+      "group": "Inception-B1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.1646624000036354,
+        "std_ms": 0.0073487541776223585,
+        "min_ms": 1.1542910000059692,
+        "max_ms": 1.1770589999855474
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b1_b3_relu2",
+      "type": "SecretReLULayer",
+      "group": "Inception-B1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.018486199996914365,
+        "std_ms": 0.00016115632781038382,
+        "min_ms": 0.018165999989605552,
+        "max_ms": 0.018798000013475757
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b1_b3_3x3_2",
+      "type": "SGXConvBase",
+      "group": "Inception-B1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.1935964999963744,
+        "std_ms": 0.07019585295805854,
+        "min_ms": 1.15977300001191,
+        "max_ms": 1.4028090000124394
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b1_b3_relu3",
+      "type": "SecretReLULayer",
+      "group": "Inception-B1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.01848320000306103,
+        "std_ms": 0.00021138533865136606,
+        "min_ms": 0.018175999997538383,
+        "max_ms": 0.01892200000952471
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b1_b4_pool",
+      "type": "SecretMaxpool2dLayer",
+      "group": "Inception-B1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 5.7220299999954705,
+        "std_ms": 0.03654727766795475,
+        "min_ms": 5.680588000018361,
+        "max_ms": 5.813243000005741
+      },
+      "input_bytes": 887808,
+      "output_bytes": 887808,
+      "input_shape": [
+        1,
+        768,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        768,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b1_b4_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-B1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.1739962999939735,
+        "std_ms": 0.01367718400140824,
+        "min_ms": 1.158332999978029,
+        "max_ms": 1.2042889999861472
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b1_b4_relu",
+      "type": "SecretReLULayer",
+      "group": "Inception-B1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.0180583999991768,
+        "std_ms": 0.002974764263925419,
+        "min_ms": 0.014746000005061433,
+        "max_ms": 0.024787999990394383
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b1_concat",
+      "type": "SecretConcatenateLayer",
+      "group": "Inception-B1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.009999999999999998,
+        "std_ms": 1.734723475976807e-18,
+        "min_ms": 0.01,
+        "max_ms": 0.01
+      },
+      "input_bytes": 887808,
+      "output_bytes": 887808,
+      "input_shape": [
+        1,
+        768,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        768,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b2_b1_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-B2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.1668861000032393,
+        "std_ms": 0.007905685825745412,
+        "min_ms": 1.153169000019716,
+        "max_ms": 1.179101999980503
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b2_b1_relu",
+      "type": "SecretReLULayer",
+      "group": "Inception-B2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.012197900002774986,
+        "std_ms": 0.004495255825049546,
+        "min_ms": 0.01042900001380076,
+        "max_ms": 0.025675000017599814
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b2_b2_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-B2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.5598375000033684,
+        "std_ms": 0.007360539331259726,
+        "min_ms": 0.5438560000072812,
+        "max_ms": 0.5717060000165475
+      },
+      "input_bytes": 147968,
+      "output_bytes": 147968,
+      "input_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b2_b2_relu1",
+      "type": "SecretReLULayer",
+      "group": "Inception-B2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.01052210000125342,
+        "std_ms": 0.0015474298371745288,
+        "min_ms": 0.00960899998858622,
+        "max_ms": 0.014834000012342585
+      },
+      "input_bytes": 147968,
+      "output_bytes": 147968,
+      "input_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b2_b2_3x3",
+      "type": "SGXConvBase",
+      "group": "Inception-B2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.1656820000041535,
+        "std_ms": 0.005998414946325695,
+        "min_ms": 1.15584799999624,
+        "max_ms": 1.1754390000078274
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b2_b2_relu2",
+      "type": "SecretReLULayer",
+      "group": "Inception-B2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.018570800000361487,
+        "std_ms": 0.00032659755288598935,
+        "min_ms": 0.01829300001077172,
+        "max_ms": 0.01943300000561976
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b2_b3_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-B2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.5613785000036842,
+        "std_ms": 0.006447968907581953,
+        "min_ms": 0.5504570000027798,
+        "max_ms": 0.5732029999876431
+      },
+      "input_bytes": 147968,
+      "output_bytes": 147968,
+      "input_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b2_b3_relu1",
+      "type": "SecretReLULayer",
+      "group": "Inception-B2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.0098715999996557,
+        "std_ms": 0.00028052885774358194,
+        "min_ms": 0.009535000003779714,
+        "max_ms": 0.010569000011173557
+      },
+      "input_bytes": 147968,
+      "output_bytes": 147968,
+      "input_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b2_b3_3x3_1",
+      "type": "SGXConvBase",
+      "group": "Inception-B2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.1674009000046226,
+        "std_ms": 0.009835333947660627,
+        "min_ms": 1.153855000012527,
+        "max_ms": 1.1849090000168871
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b2_b3_relu2",
+      "type": "SecretReLULayer",
+      "group": "Inception-B2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.011549200002036741,
+        "std_ms": 0.0017272863579715875,
+        "min_ms": 0.010580999997955587,
+        "max_ms": 0.01651400000923786
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b2_b3_3x3_2",
+      "type": "SGXConvBase",
+      "group": "Inception-B2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.171007600001417,
+        "std_ms": 0.01068070880535582,
+        "min_ms": 1.1563200000068719,
+        "max_ms": 1.1937310000007528
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b2_b3_relu3",
+      "type": "SecretReLULayer",
+      "group": "Inception-B2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.018799299999727737,
+        "std_ms": 0.0014787280360851825,
+        "min_ms": 0.01808999999752814,
+        "max_ms": 0.023201999994171274
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b2_b4_pool",
+      "type": "SecretMaxpool2dLayer",
+      "group": "Inception-B2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 5.741515400004005,
+        "std_ms": 0.018266394589503163,
+        "min_ms": 5.712603999995736,
+        "max_ms": 5.7808419999787475
+      },
+      "input_bytes": 887808,
+      "output_bytes": 887808,
+      "input_shape": [
+        1,
+        768,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        768,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b2_b4_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-B2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.1719649000013987,
+        "std_ms": 0.009853010075642744,
+        "min_ms": 1.1619809999956487,
+        "max_ms": 1.1939070000153151
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b2_b4_relu",
+      "type": "SecretReLULayer",
+      "group": "Inception-B2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.01851560000147856,
+        "std_ms": 0.00018664790165322676,
+        "min_ms": 0.01831800000218209,
+        "max_ms": 0.018972999981770045
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b2_concat",
+      "type": "SecretConcatenateLayer",
+      "group": "Inception-B2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.009999999999999998,
+        "std_ms": 1.734723475976807e-18,
+        "min_ms": 0.01,
+        "max_ms": 0.01
+      },
+      "input_bytes": 887808,
+      "output_bytes": 887808,
+      "input_shape": [
+        1,
+        768,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        768,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b3_b1_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-B3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.1696365000005926,
+        "std_ms": 0.008866490486514094,
+        "min_ms": 1.1554889999842999,
+        "max_ms": 1.1839140000233783
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b3_b1_relu",
+      "type": "SecretReLULayer",
+      "group": "Inception-B3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.01570239999466594,
+        "std_ms": 0.0029797247251305025,
+        "min_ms": 0.008847999993122357,
+        "max_ms": 0.018480999983694346
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b3_b2_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-B3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.5589590000084854,
+        "std_ms": 0.003165100904319711,
+        "min_ms": 0.5535240000256181,
+        "max_ms": 0.5636469999785731
+      },
+      "input_bytes": 147968,
+      "output_bytes": 147968,
+      "input_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b3_b2_relu1",
+      "type": "SecretReLULayer",
+      "group": "Inception-B3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.010750899994604879,
+        "std_ms": 0.0027799654051493088,
+        "min_ms": 0.009632999990571989,
+        "max_ms": 0.019072999975833227
+      },
+      "input_bytes": 147968,
+      "output_bytes": 147968,
+      "input_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b3_b2_3x3",
+      "type": "SGXConvBase",
+      "group": "Inception-B3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.1645583000046145,
+        "std_ms": 0.0061453557092211696,
+        "min_ms": 1.1557880000054865,
+        "max_ms": 1.1721570000133852
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b3_b2_relu2",
+      "type": "SecretReLULayer",
+      "group": "Inception-B3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.019353700000124263,
+        "std_ms": 0.0029218459598300264,
+        "min_ms": 0.017943999978342617,
+        "max_ms": 0.027858999999352818
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b3_b3_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-B3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.5614191000034907,
+        "std_ms": 0.005463984518703811,
+        "min_ms": 0.5545220000158224,
+        "max_ms": 0.5748319999838714
+      },
+      "input_bytes": 147968,
+      "output_bytes": 147968,
+      "input_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b3_b3_relu1",
+      "type": "SecretReLULayer",
+      "group": "Inception-B3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.009976199999073287,
+        "std_ms": 0.0006419351661777873,
+        "min_ms": 0.009577000014360237,
+        "max_ms": 0.011881999995466686
+      },
+      "input_bytes": 147968,
+      "output_bytes": 147968,
+      "input_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b3_b3_3x3_1",
+      "type": "SGXConvBase",
+      "group": "Inception-B3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.168598299997825,
+        "std_ms": 0.014641679467749432,
+        "min_ms": 1.157290999998395,
+        "max_ms": 1.2096170000006623
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b3_b3_relu2",
+      "type": "SecretReLULayer",
+      "group": "Inception-B3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.01922639999634157,
+        "std_ms": 0.0018808261541652224,
+        "min_ms": 0.01832999998896412,
+        "max_ms": 0.024820999982466674
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b3_b3_3x3_2",
+      "type": "SGXConvBase",
+      "group": "Inception-B3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.1724482000033731,
+        "std_ms": 0.00787765913408806,
+        "min_ms": 1.159443000005922,
+        "max_ms": 1.1856069999964802
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b3_b3_relu3",
+      "type": "SecretReLULayer",
+      "group": "Inception-B3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.019093899999234054,
+        "std_ms": 0.0024001786840674357,
+        "min_ms": 0.018073999996204293,
+        "max_ms": 0.02626100001634768
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b3_b4_pool",
+      "type": "SecretMaxpool2dLayer",
+      "group": "Inception-B3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 5.701875299996573,
+        "std_ms": 0.015959529053166915,
+        "min_ms": 5.671492999994143,
+        "max_ms": 5.726339000005964
+      },
+      "input_bytes": 887808,
+      "output_bytes": 887808,
+      "input_shape": [
+        1,
+        768,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        768,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b3_b4_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-B3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.1698160999941365,
+        "std_ms": 0.008747829040570346,
+        "min_ms": 1.156044999987671,
+        "max_ms": 1.181326999983412
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b3_b4_relu",
+      "type": "SecretReLULayer",
+      "group": "Inception-B3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.019814699999187724,
+        "std_ms": 0.0032539226733235924,
+        "min_ms": 0.018336000010776843,
+        "max_ms": 0.029341999976395527
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b3_concat",
+      "type": "SecretConcatenateLayer",
+      "group": "Inception-B3",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.009999999999999998,
+        "std_ms": 1.734723475976807e-18,
+        "min_ms": 0.01,
+        "max_ms": 0.01
+      },
+      "input_bytes": 887808,
+      "output_bytes": 887808,
+      "input_shape": [
+        1,
+        768,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        768,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b4_b1_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-B4",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.1670314999975062,
+        "std_ms": 0.006304300859295444,
+        "min_ms": 1.1581899999839607,
+        "max_ms": 1.1761959999887495
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b4_b1_relu",
+      "type": "SecretReLULayer",
+      "group": "Inception-B4",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.01926509999918835,
+        "std_ms": 0.00332735048955154,
+        "min_ms": 0.017800999984274313,
+        "max_ms": 0.02921399999422647
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b4_b2_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-B4",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.5586411000052749,
+        "std_ms": 0.004079399329239713,
+        "min_ms": 0.550258000004078,
+        "max_ms": 0.5658860000039567
+      },
+      "input_bytes": 147968,
+      "output_bytes": 147968,
+      "input_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b4_b2_relu1",
+      "type": "SecretReLULayer",
+      "group": "Inception-B4",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.009847600000512102,
+        "std_ms": 0.00016642667845672213,
+        "min_ms": 0.00948300001368807,
+        "max_ms": 0.010021999997888997
+      },
+      "input_bytes": 147968,
+      "output_bytes": 147968,
+      "input_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b4_b2_3x3",
+      "type": "SGXConvBase",
+      "group": "Inception-B4",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.16426600000068,
+        "std_ms": 0.008023941894919675,
+        "min_ms": 1.154586000012614,
+        "max_ms": 1.1810029999992366
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b4_b2_relu2",
+      "type": "SecretReLULayer",
+      "group": "Inception-B4",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.019346600004155334,
+        "std_ms": 0.0021703113750295576,
+        "min_ms": 0.017912000004116635,
+        "max_ms": 0.02449600000886676
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b4_b3_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-B4",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.5641464000035512,
+        "std_ms": 0.009149652026512314,
+        "min_ms": 0.5572370000095361,
+        "max_ms": 0.5896389999975327
+      },
+      "input_bytes": 147968,
+      "output_bytes": 147968,
+      "input_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b4_b3_relu1",
+      "type": "SecretReLULayer",
+      "group": "Inception-B4",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.010140300000216484,
+        "std_ms": 0.0011805248045834143,
+        "min_ms": 0.009691000002476358,
+        "max_ms": 0.013679000005595299
+      },
+      "input_bytes": 147968,
+      "output_bytes": 147968,
+      "input_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        128,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b4_b3_3x3_1",
+      "type": "SGXConvBase",
+      "group": "Inception-B4",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.1730667000023232,
+        "std_ms": 0.007759806541255142,
+        "min_ms": 1.1644150000051923,
+        "max_ms": 1.1876979999954074
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b4_b3_relu2",
+      "type": "SecretReLULayer",
+      "group": "Inception-B4",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.018246299998736504,
+        "std_ms": 0.0001936605571229056,
+        "min_ms": 0.018050999983643123,
+        "max_ms": 0.018791000002238434
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b4_b3_3x3_2",
+      "type": "SGXConvBase",
+      "group": "Inception-B4",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.1700714999960837,
+        "std_ms": 0.0076655814119844755,
+        "min_ms": 1.1581170000170005,
+        "max_ms": 1.1818279999999959
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b4_b3_relu3",
+      "type": "SecretReLULayer",
+      "group": "Inception-B4",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.010569200003374135,
+        "std_ms": 0.0032603941097535823,
+        "min_ms": 0.008637999997063162,
+        "max_ms": 0.019858999991129167
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b4_b4_pool",
+      "type": "SecretMaxpool2dLayer",
+      "group": "Inception-B4",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 5.693170199995734,
+        "std_ms": 0.017171235951818173,
+        "min_ms": 5.670007999981408,
+        "max_ms": 5.723308000000316
+      },
+      "input_bytes": 887808,
+      "output_bytes": 887808,
+      "input_shape": [
+        1,
+        768,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        768,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b4_b4_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-B4",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.169112200005884,
+        "std_ms": 0.017936521099631616,
+        "min_ms": 1.154882999998108,
+        "max_ms": 1.2208910000026663
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b4_b4_relu",
+      "type": "SecretReLULayer",
+      "group": "Inception-B4",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.018639400002484763,
+        "std_ms": 0.0003183498669265332,
+        "min_ms": 0.018404999991616933,
+        "max_ms": 0.019498999989764343
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_b4_concat",
+      "type": "SecretConcatenateLayer",
+      "group": "Inception-B4",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.009999999999999998,
+        "std_ms": 1.734723475976807e-18,
+        "min_ms": 0.01,
+        "max_ms": 0.01
+      },
+      "input_bytes": 887808,
+      "output_bytes": 887808,
+      "input_shape": [
+        1,
+        768,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        768,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "reduction_b_b1_3x3",
+      "type": "SGXConvBase",
+      "group": "Reduction-B",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.5027121000011903,
+        "std_ms": 0.005932778617447524,
+        "min_ms": 0.4952330000094207,
+        "max_ms": 0.5163110000125926
+      },
+      "input_bytes": 49152,
+      "output_bytes": 49152,
+      "input_shape": [
+        1,
+        192,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        192,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "reduction_b_b1_relu",
+      "type": "SecretReLULayer",
+      "group": "Reduction-B",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.0079055000014705,
+        "std_ms": 6.904817636976988e-05,
+        "min_ms": 0.007823000004236746,
+        "max_ms": 0.008074000021451866
+      },
+      "input_bytes": 49152,
+      "output_bytes": 49152,
+      "input_shape": [
+        1,
+        192,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        192,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "reduction_b_b2_1x1",
+      "type": "SGXConvBase",
+      "group": "Reduction-B",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.1651497000002564,
+        "std_ms": 0.004447050533767236,
+        "min_ms": 1.1595180000085747,
+        "max_ms": 1.174661000021615
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "reduction_b_b2_relu1",
+      "type": "SecretReLULayer",
+      "group": "Reduction-B",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.018303299995636735,
+        "std_ms": 0.00014796354057709083,
+        "min_ms": 0.018166999979030152,
+        "max_ms": 0.01870399998438188
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "reduction_b_b2_3x3",
+      "type": "SGXConvBase",
+      "group": "Reduction-B",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.2112467000036986,
+        "std_ms": 0.09900452409887109,
+        "min_ms": 1.156758000007585,
+        "max_ms": 1.4459620000195628
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "reduction_b_b2_relu2",
+      "type": "SecretReLULayer",
+      "group": "Reduction-B",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.011574999999197644,
+        "std_ms": 0.0023139091145187632,
+        "min_ms": 0.010219000017741564,
+        "max_ms": 0.01848799999493167
+      },
+      "input_bytes": 221952,
+      "output_bytes": 221952,
+      "input_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "output_shape": [
+        1,
+        192,
+        17,
+        17
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "reduction_b_b2_3x3_stride2",
+      "type": "SGXConvBase",
+      "group": "Reduction-B",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.4413688000018965,
+        "std_ms": 0.19550265378231751,
+        "min_ms": 1.2008150000042406,
+        "max_ms": 1.7577539999820146
+      },
+      "input_bytes": 81920,
+      "output_bytes": 81920,
+      "input_shape": [
+        1,
+        320,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        320,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "reduction_b_b2_relu3",
+      "type": "SecretReLULayer",
+      "group": "Reduction-B",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.02296779999824139,
+        "std_ms": 0.0032303383007788455,
+        "min_ms": 0.020860999995875318,
+        "max_ms": 0.032455999985359085
+      },
+      "input_bytes": 81920,
+      "output_bytes": 81920,
+      "input_shape": [
+        1,
+        320,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        320,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "reduction_b_b3_pool",
+      "type": "SecretMaxpool2dLayer",
+      "group": "Reduction-B",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.386752000001934,
+        "std_ms": 0.077168008725753,
+        "min_ms": 1.2678269999923941,
+        "max_ms": 1.4571579999937967
+      },
+      "input_bytes": 196608,
+      "output_bytes": 196608,
+      "input_shape": [
+        1,
+        768,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        768,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "reduction_b_concat",
+      "type": "SecretConcatenateLayer",
+      "group": "Reduction-B",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.009999999999999998,
+        "std_ms": 1.734723475976807e-18,
+        "min_ms": 0.01,
+        "max_ms": 0.01
+      },
+      "input_bytes": 327680,
+      "output_bytes": 327680,
+      "input_shape": [
+        1,
+        1280,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        1280,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c1_b1_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-C1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.182261799999651,
+        "std_ms": 0.006200839316915734,
+        "min_ms": 1.17217500002198,
+        "max_ms": 1.1905709999950886
+      },
+      "input_bytes": 81920,
+      "output_bytes": 81920,
+      "input_shape": [
+        1,
+        320,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        320,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c1_b1_relu",
+      "type": "SecretReLULayer",
+      "group": "Inception-C1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.008514799998238232,
+        "std_ms": 0.00020695110282830715,
+        "min_ms": 0.00836600000297949,
+        "max_ms": 0.009019000003718247
+      },
+      "input_bytes": 81920,
+      "output_bytes": 81920,
+      "input_shape": [
+        1,
+        320,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        320,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c1_b2_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-C1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.2300406999969482,
+        "std_ms": 0.0054748184019881435,
+        "min_ms": 1.2199129999999059,
+        "max_ms": 1.2403669999798694
+      },
+      "input_bytes": 98304,
+      "output_bytes": 98304,
+      "input_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c1_b2_relu1",
+      "type": "SecretReLULayer",
+      "group": "Inception-C1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.010342700005594452,
+        "std_ms": 0.00016461108789867177,
+        "min_ms": 0.010230000015098994,
+        "max_ms": 0.010814000006575952
+      },
+      "input_bytes": 98304,
+      "output_bytes": 98304,
+      "input_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c1_b2_3x3",
+      "type": "SGXConvBase",
+      "group": "Inception-C1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.23190370000259,
+        "std_ms": 0.012041888662326309,
+        "min_ms": 1.216673999977047,
+        "max_ms": 1.2597070000026633
+      },
+      "input_bytes": 98304,
+      "output_bytes": 98304,
+      "input_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c1_b2_relu2",
+      "type": "SecretReLULayer",
+      "group": "Inception-C1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.010917499997731284,
+        "std_ms": 0.0010111474954840076,
+        "min_ms": 0.010194999987334086,
+        "max_ms": 0.013571000010870193
+      },
+      "input_bytes": 98304,
+      "output_bytes": 98304,
+      "input_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c1_b3_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-C1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.6400236000009727,
+        "std_ms": 0.010014138226624416,
+        "min_ms": 1.6238050000083604,
+        "max_ms": 1.6543330000047263
+      },
+      "input_bytes": 114688,
+      "output_bytes": 114688,
+      "input_shape": [
+        1,
+        448,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        448,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c1_b3_relu1",
+      "type": "SecretReLULayer",
+      "group": "Inception-C1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.010095499999351887,
+        "std_ms": 0.0009019225276396648,
+        "min_ms": 0.009649000020317544,
+        "max_ms": 0.012779999991607838
+      },
+      "input_bytes": 114688,
+      "output_bytes": 114688,
+      "input_shape": [
+        1,
+        448,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        448,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c1_b3_3x3_1",
+      "type": "SGXConvBase",
+      "group": "Inception-C1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.2327411000086386,
+        "std_ms": 0.009907913012766232,
+        "min_ms": 1.2184040000136065,
+        "max_ms": 1.2520530000017516
+      },
+      "input_bytes": 98304,
+      "output_bytes": 98304,
+      "input_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c1_b3_relu2",
+      "type": "SecretReLULayer",
+      "group": "Inception-C1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.010531700002047728,
+        "std_ms": 0.00032071733752179766,
+        "min_ms": 0.010305000017751809,
+        "max_ms": 0.011448000009295356
+      },
+      "input_bytes": 98304,
+      "output_bytes": 98304,
+      "input_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c1_b3_3x3_2",
+      "type": "SGXConvBase",
+      "group": "Inception-C1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.2331764000037992,
+        "std_ms": 0.008352005155261287,
+        "min_ms": 1.2237070000082895,
+        "max_ms": 1.2540670000191767
+      },
+      "input_bytes": 98304,
+      "output_bytes": 98304,
+      "input_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c1_b3_relu3",
+      "type": "SecretReLULayer",
+      "group": "Inception-C1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.009251300002688367,
+        "std_ms": 0.0003978318934282221,
+        "min_ms": 0.00893600000040351,
+        "max_ms": 0.010348000017756931
+      },
+      "input_bytes": 98304,
+      "output_bytes": 98304,
+      "input_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c1_b4_pool",
+      "type": "SecretMaxpool2dLayer",
+      "group": "Inception-C1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 2.11831820000441,
+        "std_ms": 0.015633329343693023,
+        "min_ms": 2.1036219999928107,
+        "max_ms": 2.1587690000046678
+      },
+      "input_bytes": 327680,
+      "output_bytes": 327680,
+      "input_shape": [
+        1,
+        1280,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        1280,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c1_b4_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-C1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.5036367999991853,
+        "std_ms": 0.007912008546181288,
+        "min_ms": 0.49415899999871726,
+        "max_ms": 0.5159220000052755
+      },
+      "input_bytes": 49152,
+      "output_bytes": 49152,
+      "input_shape": [
+        1,
+        192,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        192,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c1_b4_relu",
+      "type": "SecretReLULayer",
+      "group": "Inception-C1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.007945099997641591,
+        "std_ms": 0.0012391268287340214,
+        "min_ms": 0.007179999983009111,
+        "max_ms": 0.010685000006560585
+      },
+      "input_bytes": 49152,
+      "output_bytes": 49152,
+      "input_shape": [
+        1,
+        192,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        192,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c1_concat",
+      "type": "SecretConcatenateLayer",
+      "group": "Inception-C1",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.009999999999999998,
+        "std_ms": 1.734723475976807e-18,
+        "min_ms": 0.01,
+        "max_ms": 0.01
+      },
+      "input_bytes": 524288,
+      "output_bytes": 524288,
+      "input_shape": [
+        1,
+        2048,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        2048,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c2_b1_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-C2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.179455300001564,
+        "std_ms": 0.012069534367692548,
+        "min_ms": 1.1635280000064085,
+        "max_ms": 1.2002290000054927
+      },
+      "input_bytes": 81920,
+      "output_bytes": 81920,
+      "input_shape": [
+        1,
+        320,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        320,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c2_b1_relu",
+      "type": "SecretReLULayer",
+      "group": "Inception-C2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.008543299998109433,
+        "std_ms": 0.00016156055042420742,
+        "min_ms": 0.008379999997032428,
+        "max_ms": 0.00898100000767954
+      },
+      "input_bytes": 81920,
+      "output_bytes": 81920,
+      "input_shape": [
+        1,
+        320,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        320,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c2_b2_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-C2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.2576879999954826,
+        "std_ms": 0.0669705283772645,
+        "min_ms": 1.219560999999203,
+        "max_ms": 1.4554910000015298
+      },
+      "input_bytes": 98304,
+      "output_bytes": 98304,
+      "input_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c2_b2_relu1",
+      "type": "SecretReLULayer",
+      "group": "Inception-C2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.010473300002900032,
+        "std_ms": 0.00036247898076633485,
+        "min_ms": 0.010182000011127457,
+        "max_ms": 0.011357000005318696
+      },
+      "input_bytes": 98304,
+      "output_bytes": 98304,
+      "input_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c2_b2_3x3",
+      "type": "SGXConvBase",
+      "group": "Inception-C2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.2345672999941826,
+        "std_ms": 0.019053176367590786,
+        "min_ms": 1.215860000002067,
+        "max_ms": 1.2830309999856127
+      },
+      "input_bytes": 98304,
+      "output_bytes": 98304,
+      "input_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c2_b2_relu2",
+      "type": "SecretReLULayer",
+      "group": "Inception-C2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.00923179999858803,
+        "std_ms": 0.00014121954167566905,
+        "min_ms": 0.009079000022893524,
+        "max_ms": 0.00960799999916162
+      },
+      "input_bytes": 98304,
+      "output_bytes": 98304,
+      "input_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c2_b3_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-C2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.648234699999307,
+        "std_ms": 0.021433646440807436,
+        "min_ms": 1.6266279999967992,
+        "max_ms": 1.6981470000132504
+      },
+      "input_bytes": 114688,
+      "output_bytes": 114688,
+      "input_shape": [
+        1,
+        448,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        448,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c2_b3_relu1",
+      "type": "SecretReLULayer",
+      "group": "Inception-C2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.009835599999519218,
+        "std_ms": 0.00019183857961377085,
+        "min_ms": 0.009655999974711449,
+        "max_ms": 0.010346999999910622
+      },
+      "input_bytes": 114688,
+      "output_bytes": 114688,
+      "input_shape": [
+        1,
+        448,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        448,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c2_b3_3x3_1",
+      "type": "SGXConvBase",
+      "group": "Inception-C2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.2333426999987296,
+        "std_ms": 0.009621763073045637,
+        "min_ms": 1.2227800000061961,
+        "max_ms": 1.259293000003936
+      },
+      "input_bytes": 98304,
+      "output_bytes": 98304,
+      "input_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c2_b3_relu2",
+      "type": "SecretReLULayer",
+      "group": "Inception-C2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.009089000005246817,
+        "std_ms": 0.0001166387612667455,
+        "min_ms": 0.008933000003708003,
+        "max_ms": 0.009378000015658472
+      },
+      "input_bytes": 98304,
+      "output_bytes": 98304,
+      "input_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c2_b3_3x3_2",
+      "type": "SGXConvBase",
+      "group": "Inception-C2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 1.2324867999950584,
+        "std_ms": 0.009385965233533692,
+        "min_ms": 1.2174499999844102,
+        "max_ms": 1.2455439999996543
+      },
+      "input_bytes": 98304,
+      "output_bytes": 98304,
+      "input_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c2_b3_relu3",
+      "type": "SecretReLULayer",
+      "group": "Inception-C2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.009234399996671527,
+        "std_ms": 9.600229406860437e-05,
+        "min_ms": 0.00908499998786283,
+        "max_ms": 0.009422000005088194
+      },
+      "input_bytes": 98304,
+      "output_bytes": 98304,
+      "input_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        384,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c2_b4_pool",
+      "type": "SecretMaxpool2dLayer",
+      "group": "Inception-C2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 2.1370821000061824,
+        "std_ms": 0.01589808181461058,
+        "min_ms": 2.1173000000089814,
+        "max_ms": 2.160826000022098
+      },
+      "input_bytes": 327680,
+      "output_bytes": 327680,
+      "input_shape": [
+        1,
+        1280,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        1280,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c2_b4_1x1",
+      "type": "SGXConvBase",
+      "group": "Inception-C2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.5060431999993398,
+        "std_ms": 0.010026253743122259,
+        "min_ms": 0.49576799997907983,
+        "max_ms": 0.5246780000049966
+      },
+      "input_bytes": 49152,
+      "output_bytes": 49152,
+      "input_shape": [
+        1,
+        192,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        192,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c2_b4_relu",
+      "type": "SecretReLULayer",
+      "group": "Inception-C2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.00832390000198302,
+        "std_ms": 0.002945684251682819,
+        "min_ms": 0.007199999998874773,
+        "max_ms": 0.017156000012619188
+      },
+      "input_bytes": 49152,
+      "output_bytes": 49152,
+      "input_shape": [
+        1,
+        192,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        192,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "inception_c2_concat",
+      "type": "SecretConcatenateLayer",
+      "group": "Inception-C2",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.009999999999999998,
+        "std_ms": 1.734723475976807e-18,
+        "min_ms": 0.01,
+        "max_ms": 0.01
+      },
+      "input_bytes": 524288,
+      "output_bytes": 524288,
+      "input_shape": [
+        1,
+        2048,
+        8,
+        8
+      ],
+      "output_shape": [
+        1,
+        2048,
+        8,
+        8
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "avgpool",
+      "type": "SecretAvgpool2dLayer",
+      "group": "Classifier",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.0189452000000756,
+        "std_ms": 0.003416782605325144,
+        "min_ms": 0.01711999999542968,
+        "max_ms": 0.028788000008717063
+      },
+      "input_bytes": 8192,
+      "output_bytes": 8192,
+      "input_shape": [
+        1,
+        2048,
+        1,
+        1
+      ],
+      "output_shape": [
+        1,
+        2048,
+        1,
+        1
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "flatten",
+      "type": "SecretFlattenLayer",
+      "group": "Classifier",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.0035945000007586714,
+        "std_ms": 0.00013815516936103357,
+        "min_ms": 0.0034579999805828265,
+        "max_ms": 0.003980000002457018
+      },
+      "input_bytes": 8192,
+      "output_bytes": 8192,
+      "input_shape": [
+        1,
+        2048
+      ],
+      "output_shape": [
+        1,
+        2048
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "fc",
+      "type": "SGXLinearBase",
+      "group": "Classifier",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.17180099999904996,
+        "std_ms": 0.00495552952234187,
+        "min_ms": 0.16580699997348347,
+        "max_ms": 0.1797760000101789
+      },
+      "input_bytes": 4000,
+      "output_bytes": 4000,
+      "input_shape": [
+        1,
+        1000
+      ],
+      "output_shape": [
+        1,
+        1000
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    },
+    {
+      "name": "output",
+      "type": "SecretOutputLayer",
+      "group": "Classifier",
+      "enclave": {
+        "mean_ms": 0,
+        "std_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0,
+        "p95_ms": 0,
+        "p99_ms": 0
+      },
+      "cpu": {
+        "mean_ms": 0.009999999999999998,
+        "std_ms": 1.734723475976807e-18,
+        "min_ms": 0.01,
+        "max_ms": 0.01
+      },
+      "input_bytes": 4000,
+      "output_bytes": 4000,
+      "input_shape": [
+        1,
+        1000
+      ],
+      "output_shape": [
+        1,
+        1000
+      ],
+      "dependencies": [],
+      "num_iterations": 10
+    }
+  ]
+}
