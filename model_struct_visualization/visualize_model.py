@@ -63,27 +63,62 @@ def generate_color_palette(unique_values: list) -> dict:
 
 
 def parse_dependencies(dep_str: str) -> list:
-    """Parse the dependencies column which may be a string representation of a list."""
+    """Parse the dependencies column which may be a string representation of a list, 
+    comma-separated, or semicolon-separated."""
     if pd.isna(dep_str) or dep_str == "" or dep_str == "[]":
         return []
-    try:
-        # Try to parse as Python literal (e.g., "['a', 'b']")
-        return ast.literal_eval(dep_str)
-    except (ValueError, SyntaxError):
-        # Fallback: split by comma
-        return [s.strip().strip("'\"") for s in dep_str.strip("[]").split(",") if s.strip()]
+    
+    dep_str = str(dep_str).strip()
+    
+    # Cases like "['a', 'b']"
+    if dep_str.startswith('[') and dep_str.endswith(']'):
+        try:
+            return ast.literal_eval(dep_str)
+        except (ValueError, SyntaxError):
+            # Fallback: remove brackets and quotes, then split by comma
+            cleaned = dep_str.strip("[]").replace("'", "").replace('"', "")
+            return [s.strip() for s in cleaned.split(",") if s.strip()]
+            
+    # Semicolon separated (used in InceptionV3)
+    if ';' in dep_str:
+        return [s.strip() for s in dep_str.split(';') if s.strip()]
+        
+    # Single item or comma separated
+    return [s.strip() for s in dep_str.split(',') if s.strip()]
 
 
 def load_model_graph(csv_path: str) -> tuple[pd.DataFrame, nx.DiGraph]:
     """Load CSV and build a NetworkX directed graph."""
     df = pd.read_csv(csv_path)
     
-    # Ensure required columns exist
-    if "name" not in df.columns:
-        raise ValueError("CSV must contain a 'name' column")
-    if "dependencies" not in df.columns:
-        raise ValueError("CSV must contain a 'dependencies' column")
+    # Normalize column names for case-insensitive lookup
+    col_map = {c.lower(): c for c in df.columns}
     
+    # Map common variations
+    name_col = col_map.get("name") or col_map.get("layername")
+    dep_col = col_map.get("dependencies")
+    
+    if not name_col:
+        raise ValueError(f"CSV must contain a 'name' or 'LayerName' column. Found: {list(df.columns)}")
+    if not dep_col:
+        raise ValueError(f"CSV must contain a 'dependencies' column. Found: {list(df.columns)}")
+    
+    # Standardize column names in the dataframe for internal use
+    df = df.rename(columns={name_col: "name", dep_col: "dependencies"})
+    
+    # Handle other optional columns
+    group_col = col_map.get("group")
+    if group_col and group_col != "group":
+        df = df.rename(columns={group_col: "group"})
+        
+    type_col = col_map.get("type")
+    if type_col and type_col != "type":
+        df = df.rename(columns={type_col: "type"})
+        
+    time_col = col_map.get("enclave_time_mean") or col_map.get("enclavetime_mean")
+    if time_col and time_col != "enclave_time_mean":
+        df = df.rename(columns={time_col: "enclave_time_mean"})
+
     # Parse dependencies
     df["parsed_deps"] = df["dependencies"].apply(parse_dependencies)
     
@@ -91,6 +126,9 @@ def load_model_graph(csv_path: str) -> tuple[pd.DataFrame, nx.DiGraph]:
     G = nx.DiGraph()
     for _, row in df.iterrows():
         node_name = row["name"]
+        if pd.isna(node_name) or str(node_name).strip() == "" or str(node_name).lower() == "all":
+            continue
+            
         G.add_node(node_name)
         for dep in row["parsed_deps"]:
             if dep:  # Ensure dep is not empty
