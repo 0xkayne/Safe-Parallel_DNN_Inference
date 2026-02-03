@@ -9,6 +9,7 @@ class MEDIAAlgorithm:
         self.G = G
         self.layers_map = layers_map
         self.servers = servers
+        self.bandwidth_mbps = bandwidth_mbps
         self.bandwidth_per_ms = (bandwidth_mbps / 8.0) / 1000.0
         self.node_to_partition = {}
 
