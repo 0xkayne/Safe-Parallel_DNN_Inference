@@ -101,6 +101,48 @@ def network_latency(data_mb, bandwidth_mbps, is_first_hop=False):
     
     return rtt + transmission_time + attestation
 
+def hpa_cost(layer, k: int, bandwidth_mbps: float, efficiency_gamma: float = 0.9) -> float:
+    """
+    Compute HPA cost for splitting a layer into k parallel shards.
+    
+    Args:
+        layer: DNNLayer object
+        k: Parallelism degree (number of shards)
+        bandwidth_mbps: Network bandwidth in Mbps
+        efficiency_gamma: Parallel efficiency factor (default 0.9)
+    
+    Returns:
+        float: Total cost in ms = compute + paging + sync
+    
+    Cost Model:
+        Cost(v, k) = T_comp/k^γ + Penalty_mem(M/k) * T_comp + T_sync(k)
+    """
+    # 1. Compute cost with efficiency factor
+    t_comp_original = layer.workload  # ms
+    t_comp = t_comp_original / (k ** efficiency_gamma)
+    
+    # 2. Memory penalty (using existing calculate_penalty)
+    # Simplified: assume weights split, activations replicated
+    m_weight = layer.weight_memory + layer.bias_memory
+    m_activation = layer.activation_memory
+    m_split = (m_weight / k) + m_activation  # MB per shard
+    
+    penalty = calculate_penalty(m_split)
+    t_paging = (penalty - 1.0) * t_comp  # Extra time due to thrashing
+    
+    # 3. Sync cost (AllReduce: factor 2 for Reduce-Scatter + All-Gather)
+    if k > 1:
+        # Ring AllReduce: 2 * (k-1)/k * data_volume
+        # k=2: 1.0x (Direct exchange)
+        # k=8: 1.75x
+        sync_bytes = layer.output_bytes * 2 * (k - 1) / k
+        sync_mb = sync_bytes / (1024 * 1024)
+        t_sync = network_latency(sync_mb, bandwidth_mbps)
+    else:
+        t_sync = 0.0
+    
+    return t_comp + t_paging + t_sync
+
 # CPU Benchmark Scores (PassMark) for Heterogeneous Compute Scaling
 # Baseline: Intel Xeon Platinum 8380 (Ice Lake) ~ 62318
 SERVER_TYPES = {
