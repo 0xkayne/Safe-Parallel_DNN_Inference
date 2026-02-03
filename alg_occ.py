@@ -1,6 +1,7 @@
 import math
 import networkx as nx
-from common import Partition, EPC_EFFECTIVE_MB, calculate_penalty, ScheduleResult
+from common import (Partition, EPC_EFFECTIVE_MB, calculate_penalty, ScheduleResult,
+                    enclave_init_cost, ENABLE_ENCLAVE_INIT)
 
 class OCCAlgorithm:
     """
@@ -59,6 +60,13 @@ class OCCAlgorithm:
         s_id = best_server.id if best_server else 0
         
         current_time = 0.0
+        
+        # Enclave Initialization Overhead (Cold Start, one-time per inference)
+        if ENABLE_ENCLAVE_INIT:
+            # OCC runs on single server, init cost = cost of loading the enclave binary
+            enclave_binary_size_mb = 10.0  # Typical DNN inference enclave size
+            current_time += enclave_init_cost(enclave_binary_size_mb)
+        
         server_schedule = {s.id: [] for s in self.servers}
 
         for i, part in enumerate(partitions):

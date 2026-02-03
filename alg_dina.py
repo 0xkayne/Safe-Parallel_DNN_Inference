@@ -1,6 +1,8 @@
 import networkx as nx
 import math
-from common import Partition, EPC_EFFECTIVE_MB, calculate_penalty, PAGING_BANDWIDTH_MB_PER_MS, PAGE_SIZE_KB, PAGE_FAULT_OVERHEAD_MS, ENCLAVE_ENTRY_EXIT_OVERHEAD_MS, ScheduleResult
+from common import (Partition, EPC_EFFECTIVE_MB, calculate_penalty, PAGING_BANDWIDTH_MB_PER_MS,
+                    PAGE_SIZE_KB, PAGE_FAULT_OVERHEAD_MS, ENCLAVE_ENTRY_EXIT_OVERHEAD_MS,
+                    ScheduleResult, network_latency)
 
 class DINAAlgorithm:
     def __init__(self, G, layers_map, servers, bandwidth_mbps):
@@ -79,7 +81,8 @@ class DINAAlgorithm:
                         for v in p.layers:
                             if self.G.has_edge(u.id, v.id):
                                 vol += self.G[u.id][v.id]['weight']
-                    comm = vol / self.bandwidth_per_ms
+                    vol_mb = vol / (1024 * 1024)  # Convert bytes to MB
+                    comm = network_latency(vol_mb, self.bandwidth_mbps, is_first_hop=(i == 1))
                 
                 start_loading = max(server_free_time[s.id], prev_end + comm)
                 start_exec = start_loading + paging_overhead

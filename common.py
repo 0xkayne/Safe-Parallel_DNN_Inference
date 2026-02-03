@@ -47,6 +47,60 @@ PAGE_SIZE_KB = 4               # 4 KB per page
 PAGE_FAULT_OVERHEAD_MS = 0.03  # 30 µs per page fault
 ENCLAVE_ENTRY_EXIT_OVERHEAD_MS = 0.005  # 5 µs per ecall/ocall
 
+# ============================================
+# Distributed Multi-TEE Inference Parameters
+# (Calibrated based on real-world measurements)
+# ============================================
+
+# 1. Cross-Node Network Latency (分场景配置)
+RTT_DATACENTER_MS = 1.0        # 数据中心内 (同机架/跨机架)
+RTT_EDGE_MS = 5.0              # 边缘网络 (园区 LAN) - 默认
+RTT_WAN_MS = 30.0              # 广域边缘 (跨城市)
+RTT_MS = RTT_EDGE_MS           # 当前使用的 RTT (可切换)
+TLS_HANDSHAKE_OVERHEAD_MS = 10.0  # 首次 TLS 连接开销
+
+# 2. SGX Remote Attestation (首次 Enclave 间通信)
+# 基于 DCAP 本地验证模式 (30-150 ms 实测范围，取保守值)
+ATTESTATION_OVERHEAD_MS = 80.0    # DCAP Quote 生成 + 验证 (保守)
+SIGMA_HANDSHAKE_MS = 20.0         # SIGMA 密钥协商 (ECDH P-256 + ECDSA)
+FIRST_HOP_OVERHEAD_MS = ATTESTATION_OVERHEAD_MS + SIGMA_HANDSHAKE_MS  # ~100 ms
+
+# 3. Enclave Initialization (冷启动)
+# 基于 SGX1/SGX2 实测数据 (20-100 ms 范围)
+ENCLAVE_INIT_BASE_MS = 50.0       # ECREATE + EINIT 固定开销 (保守)
+EADD_PER_PAGE_MS = 0.001          # 1 µs/page (实测典型值)
+
+# 4. Simulation Mode Flags
+ENABLE_RTT = True                 # 启用 RTT 网络延迟
+ENABLE_ATTESTATION = False        # 启用 Remote Attestation 开销 (默认关闭)
+ENABLE_ENCLAVE_INIT = False       # 启用 Enclave 初始化开销 (默认关闭)
+
+def enclave_init_cost(enclave_size_mb):
+    """计算 Enclave 初始化开销 (ms)
+    
+    基于 SGX 指令执行时间:
+    - ECREATE: ~0.1 ms
+    - EADD: ~1 µs/page (批量优化)
+    - EINIT: 10-50 ms (签名验证 + Launch Enclave)
+    """
+    if not ENABLE_ENCLAVE_INIT:
+        return 0.0
+    num_pages = enclave_size_mb * 1024 / 4  # 4 KB/page
+    return ENCLAVE_INIT_BASE_MS + num_pages * EADD_PER_PAGE_MS
+
+def network_latency(data_mb, bandwidth_mbps, is_first_hop=False):
+    """计算完整网络通信延迟 (ms)
+    
+    T_network = RTT + T_transmission + T_attestation (optional)
+    """
+    bandwidth_per_ms = (bandwidth_mbps / 8.0) / 1000.0  # MB/ms
+    transmission_time = data_mb / bandwidth_per_ms if bandwidth_per_ms > 0 else 0
+    
+    rtt = RTT_MS if ENABLE_RTT else 0.0
+    attestation = FIRST_HOP_OVERHEAD_MS if (is_first_hop and ENABLE_ATTESTATION) else 0.0
+    
+    return rtt + transmission_time + attestation
+
 # CPU Benchmark Scores (PassMark) for Heterogeneous Compute Scaling
 # Baseline: Intel Xeon Platinum 8380 (Ice Lake) ~ 62318
 SERVER_TYPES = {

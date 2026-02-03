@@ -87,9 +87,97 @@ Lee, T., Lin, Z., Pushp, S., Li, C., Liu, Y., Lee, Y., Xu, F., Xu, C., Zhang, L.
 *   `alg_media.py`: MEDIA 算法实现。
 *   `alg_ours.py`: Ours 算法实现。
 *   `experiment_runner.py`: **实验主程序**。自动遍历所有模型、服务器配置和带宽配置，运行三种算法并输出对比结果。
+*   `model_struct_visualization/`: **模型结构可视化模块**。包含代码及生成的结果。
+    *   `visualize_model.py`: 核心可视化脚本，支持单文件处理。
+    *   `batch_visualize.py`: 批量可视化处理脚本，自动遍历数据集。
+    *   `outputs/`: 生成的可视化文件存放目录（按模型分子文件夹）。
 *   `results_comparison.csv`: 实验结果汇总。
 
-## 性能分析与结果解读（基于动态惩罚模型）
+## 模型可视化工具
+
+`model_struct_visualization/visualize_model.py` 可将 DNN 模型的层级依赖关系可视化为交互式 HTML 图形。
+
+### 功能特性
+
+- **交互式图形**：支持缩放、平移、拖拽节点
+- **动态着色**：可根据任意列（如 `group`、`type` 或未来的 `partition_id`）对节点着色
+- **悬停信息**：鼠标悬停显示层的详细性能指标
+- **层级布局**：清晰展示数据流方向
+
+### 使用方法
+
+```bash
+# 安装依赖（如尚未安装）
+pip install pyvis pandas networkx
+
+# 批量处理所有模型（推荐）
+python model_struct_visualization/batch_visualize.py
+
+# 基础用法（按 group 着色，处理单文件）
+python model_struct_visualization/visualize_model.py --input datasets_260120/bert_base.csv
+
+# 按操作类型着色
+python model_struct_visualization/visualize_model.py --input datasets_260120/bert_base.csv --color-by type
+
+# 指定输出文件路径
+python model_struct_visualization/visualize_model.py --input datasets_260120/bert_base.csv --output custom_viz.html
+```
+
+### 可视化模型分区
+
+当使用分区算法处理模型后，可将 `partition_id` 列添加到 CSV 中，然后使用相同工具可视化分区结果：
+
+```bash
+# 分区后的可视化
+python model_struct_visualization/visualize_model.py --input partitioned_model.csv --color-by partition_id
+```
+
+### 命令行参数
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--input, -i` | 输入 CSV 文件路径 | (必需) |
+| `--output, -o` | 输出 HTML 文件路径 | `<input>_viz.html` |
+| `--color-by, -c` | 用于节点着色的列名 | `group` |
+| `--layout, -l` | 布局算法 (`hierarchical` 或 `physics`) | `hierarchical` |
+
+## 算法分区结果可视化
+
+`model_struct_visualization/visualize_alg.py` 提供了一个集成入口，可以直接运行指定的模型分割算法并实时生成分区后的可视化 HTML。
+
+### 使用方法
+
+```bash
+# 运行并查看 Ours 算法的分区结果（默认 4 服务器, 100Mbps）
+python model_struct_visualization/visualize_alg.py --model datasets_260120/bert_base.csv --alg ours
+
+# 查看 DINA 算法（严格受限）的分区结果
+python model_struct_visualization/visualize_alg.py --model datasets_260120/bert_base.csv --alg dina --servers 8
+
+# 查看 MEDIA 算法结果
+python model_struct_visualization/visualize_alg.py --model datasets_260120/bert_base.csv --alg media --bw 10
+```
+
+### 命令行参数 (`visualize_alg.py`)
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--model, -m` | 模型 CSV 路径 | (必需) |
+| `--alg, -a` | 算法选择 (`ours`, `media`, `dina`, `occ`) | `ours` |
+| `--servers, -s` | 集群服务器数量 | 4 |
+| `--bw, -b` | 网络带宽 (Mbps) | 100 |
+| `--output, -o` | 输出 HTML 路径 | (自动生成) |
+
+### 批量可视化算法分区结果
+
+如果您希望一次性运行所有算法（DINA, MEDIA, Ours, OCC）并为所有模型生成可视化报告，可以使用以下脚本：
+
+```bash
+python model_struct_visualization/batch_alg_visualize.py
+```
+
+该脚本将结果按模型存储在 `model_struct_visualization/outputs/<model_name>/partitions/` 目录下。
+
 
 在引入了基于 Intel SGX 加密带宽瓶颈的 **动态惩罚模型 ($Penalty = 1.5 + 3 \times (Ratio-1)$)** 后，实验结果更加贴近真实硬件表现：
 
@@ -194,6 +282,297 @@ python combine_charts.py
 
 ---
 
+## 分布式多 TEE 节点推理工作流
+
+本节详细描述了在真实分布式 SGX 集群中执行 DNN 推理的完整工作流程，包括系统初始化、安全信道建立、分区调度与执行等全部阶段。
+
+### 1. 系统架构总览
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                               Distributed SGX Inference System                           │
+├─────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                          │
+│   ┌──────────────────┐         ┌──────────────────┐         ┌──────────────────┐        │
+│   │   Edge Server 1   │◄───────►│   Edge Server 2   │◄───────►│   Edge Server N   │        │
+│   │  ┌────────────┐  │   TLS   │  ┌────────────┐  │   TLS   │  ┌────────────┐  │        │
+│   │  │  Enclave 1  │  │◄───────►│  │  Enclave 2  │  │◄───────►│  │  Enclave N  │  │        │
+│   │  │ Partition A │  │  SIGMA  │  │ Partition B │  │  SIGMA  │  │ Partition C │  │        │
+│   │  └────────────┘  │         │  └────────────┘  │         │  └────────────┘  │        │
+│   │       │ EPC      │         │       │ EPC      │         │       │ EPC      │        │
+│   └───────┼──────────┘         └───────┼──────────┘         └───────┼──────────┘        │
+│           ▼                            ▼                            ▼                    │
+│   ┌───────────────┐            ┌───────────────┐            ┌───────────────┐           │
+│   │   Local DRAM   │            │   Local DRAM   │            │   Local DRAM   │           │
+│   │ (Encrypted Swap)│            │ (Encrypted Swap)│            │ (Encrypted Swap)│           │
+│   └───────────────┘            └───────────────┘            └───────────────┘           │
+│                                                                                          │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 2. 端到端推理时序图
+
+一次完整的分布式推理请求经历以下阶段：
+
+```
+时间轴 ──────────────────────────────────────────────────────────────────────────────────────►
+
+阶段 1: 系统初始化 (一次性)
+├─ Enclave 创建 (ECREATE/EADD/EINIT) ──────────────────────┤
+│  各节点: 50-200 ms                                        │
+
+阶段 2: 安全信道建立 (首次通信)
+├─ Remote Attestation (DCAP/EPID) ─┤
+│  每对节点: 100-500 ms             │
+├─ SIGMA 密钥协商 ──────────────────┤
+│  每对节点: 10-50 ms               │
+
+阶段 3: 模型分发与加载 (每次推理)
+├─ 分区权重传输 ───────────────────────────────────────────┤
+│  取决于模型大小和网络带宽                                  │
+├─ EPC 换入 (静态内存) ────────────────────────────────────┤
+│  swap_time = static_mem / 1.0 MB/ms                       │
+
+阶段 4: 分区执行与数据流转
+├─ Partition A @ Server 1 ─────────┤
+│  exec_time = workload × penalty   │
+│                      ├─ 激活值传输 (RTT + BW) ─┤
+│                      │  latency = RTT + data/BW │
+│                                   ├─ Partition B @ Server 2 ─────────┤
+│                                   │  exec_time = workload × penalty   │
+│                                                        ├─ 激活值传输 ─┤
+│                                                                       ├─ Partition C ─┤
+阶段 5: 结果聚合
+                                                                                        ├─ 返回 ─┤
+```
+
+### 3. 分阶段开销建模
+
+#### 3.1 跨节点网络延迟建模
+
+在真实边缘网络中，跨节点通信的时延不仅包含数据传输时间，还需要考虑网络协议栈的固有开销：
+
+| 开销组件 | 物理来源 | 建模公式 | 典型值 |
+|----------|----------|----------|--------|
+| **RTT (往返延迟)** | 物理链路传播 + 交换机排队 + 协议处理 | 固定值 `RTT_MS` | **1-50 ms** (边缘网络) |
+| **传输时延** | 数据量 / 有效带宽 | `data_bytes / (bandwidth_mbps / 8)` | 取决于配置 |
+| **TCP 握手** | 三次握手 (首次连接) | `1.5 × RTT` | 按需 |
+| **TLS 握手** | 证书验证 + 密钥交换 (首次安全连接) | `2 × RTT + crypto_time` | 5-20 ms |
+
+**完整网络通信时延公式**：
+
+```
+T_network = RTT + T_transmission + T_tls_overhead
+
+其中：
+- T_transmission = data_mb / (bandwidth_mbps / 8.0 / 1000.0)  [ms]
+- T_tls_overhead = 0 (如果连接已建立) 或 ~10 ms (首次连接)
+```
+
+**关键参数建议值**：
+
+| 网络类型 | RTT (ms) | 典型带宽 | 使用场景 |
+|----------|----------|----------|----------|
+| 同机架 (Intra-Rack) | 0.1-0.5 | 1-10 Gbps | 数据中心内部 |
+| 同数据中心 | 0.5-2 | 100 Mbps-1 Gbps | 机房内跨机架 |
+| 边缘集群 (LAN) | 1-10 | 10-100 Mbps | 园区/工厂边缘 |
+| 广域边缘 (WAN) | 10-100 | 1-50 Mbps | 跨城市边缘节点 |
+
+#### 3.2 SGX Remote Attestation 开销建模
+
+在分布式 SGX 系统中，**每对 Enclave 首次通信前**必须完成远程证明（Remote Attestation），以验证对方运行在真实的 SGX 硬件上且代码未被篡改。
+
+##### 3.2.1 远程证明流程
+
+```
+┌─────────────────┐                                    ┌─────────────────┐
+│   Enclave A     │                                    │   Enclave B     │
+│   (Prover)      │                                    │   (Verifier)    │
+└────────┬────────┘                                    └────────┬────────┘
+         │                                                      │
+         │  ──────────────── 1. Challenge (Nonce) ────────────► │
+         │                                                      │
+         │  ◄───────────── 2. Quote (REPORT + Signature) ────── │
+         │     包含: MRENCLAVE, MRSIGNER, ISV_SVN, 用户数据      │
+         │                                                      │
+         │  ──────────── 3. 验证 Quote (IAS/PCCS) ────────────► │
+         │     EPID: 联系 Intel Attestation Service              │
+         │     DCAP: 本地验证 + Quoting Enclave                  │
+         │                                                      │
+         │  ◄────────────── 4. 验证结果 ─────────────────────── │
+         │                                                      │
+         │  ══════════════ 5. SIGMA 密钥协商 ═══════════════════ │
+         │     建立 AES-GCM 加密信道                             │
+         │                                                      │
+         ▼                                                      ▼
+    ┌─────────────────────────────────────────────────────────────┐
+    │              Secure Channel Established                      │
+    │         后续通信使用协商的会话密钥加密                         │
+    └─────────────────────────────────────────────────────────────┘
+```
+
+##### 3.2.2 各阶段时延分解
+
+| 阶段 | EPID (SGX1) | DCAP (SGX2/云) | 说明 |
+|------|-------------|----------------|------|
+| **Quote 生成** | 10-30 ms | 5-15 ms | QE 生成签名 |
+| **Quote 传输** | ~RTT | ~RTT | 网络往返 |
+| **Quote 验证** | 100-500 ms | 10-50 ms | EPID 需联网; DCAP 本地 |
+| **SIGMA 协商** | 10-30 ms | 10-30 ms | Diffie-Hellman + 签名 |
+| **会话密钥导出** | 1-5 ms | 1-5 ms | HKDF/AES 密钥扩展 |
+
+**远程证明总开销公式**：
+
+```
+T_attestation = T_quote_gen + T_quote_verify + T_sigma + T_key_derive
+
+典型值：
+- EPID 模式: 150-600 ms (需联系 Intel 服务器)
+- DCAP 模式: 30-100 ms (本地验证)
+```
+
+**建模参数建议**：
+
+```python
+# DCAP 模式 (推荐用于边缘集群)
+ATTESTATION_OVERHEAD_MS = 50.0  # Quote 生成 + 本地验证
+
+# SIGMA 密钥协商
+SIGMA_HANDSHAKE_MS = 20.0       # ECDH + 签名验证
+
+# 首次跨节点通信总开销
+FIRST_HOP_OVERHEAD_MS = ATTESTATION_OVERHEAD_MS + SIGMA_HANDSHAKE_MS  # ~70 ms
+```
+
+> **重要假设**：本仿真假设所有节点在系统启动时完成相互证明，因此推理阶段不计入证明开销。若需要模拟动态加入节点的场景，需将 `FIRST_HOP_OVERHEAD_MS` 加入首次通信时延。
+
+##### 3.2.3 会话密钥复用
+
+建立安全信道后，后续通信仅需使用协商的 AES-GCM 密钥加解密，开销极低（~1 µs/KB）。本仿真假设：
+
+- **单次推理内**：同一节点对之间的多次数据传输复用已建立的安全信道
+- **跨推理请求**：会话保持有效，无需重新证明
+
+#### 3.3 Enclave 初始化开销建模
+
+每个 SGX 节点在首次加载 Enclave 时需要执行昂贵的初始化操作：
+
+##### 3.3.1 Enclave 生命周期
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        Enclave Lifecycle                                 │
+├──────────────────┬──────────────────┬──────────────────┬────────────────┤
+│   1. ECREATE     │   2. EADD × N    │   3. EINIT       │  4. EENTER     │
+│   创建 SECS      │   逐页加载代码/数据│   完成初始化     │  进入执行      │
+│   ~0.1 ms        │   ~0.1 ms/page   │   ~10-50 ms      │  ~5 µs         │
+└──────────────────┴──────────────────┴──────────────────┴────────────────┘
+                                │
+                                ▼
+                    ┌─────────────────────────┐
+                    │  Enclave Ready State    │
+                    │  可接受 ecall 调用       │
+                    └─────────────────────────┘
+```
+
+##### 3.3.2 初始化阶段详解
+
+| 阶段 | 指令/操作 | 时延 | 说明 |
+|------|-----------|------|------|
+| **ECREATE** | 创建 Enclave 控制结构 (SECS) | ~0.1 ms | 分配 EPC 元数据页 |
+| **EADD** | 添加页面到 Enclave | ~0.1 ms/page | 包含代码、全局数据、堆栈 |
+| **EINIT** | 验证签名并初始化 | 10-50 ms | Launch Enclave 验证、MRENCLAVE 计算 |
+| **EENTER** (首次) | 首次进入 Enclave | ~5-10 µs | TCS 初始化 |
+
+**Enclave 初始化总开销公式**：
+
+```
+T_enclave_init = T_ecreate + N_pages × T_eadd + T_einit
+
+其中：
+- T_ecreate ≈ 0.1 ms
+- T_eadd ≈ 0.1 ms/page
+- T_einit ≈ 20-50 ms (取决于 Enclave 大小和 Launch Policy)
+- N_pages = Enclave 代码/数据页数 (通常 100-1000 页)
+
+典型值：
+- 小型 Enclave (< 10 MB): 30-50 ms
+- 中型 Enclave (10-50 MB): 50-100 ms
+- 大型 Enclave (> 50 MB): 100-200 ms
+```
+
+**建模参数建议**：
+
+```python
+# 基础 Enclave 初始化开销
+ENCLAVE_INIT_BASE_MS = 30.0      # ECREATE + EINIT 固定开销
+
+# 按页加载开销
+EADD_PER_PAGE_MS = 0.0001        # 0.1 µs/page (批量优化后)
+
+# 总初始化开销
+def enclave_init_cost(enclave_size_mb):
+    num_pages = enclave_size_mb * 1024 / 4  # 4 KB/page
+    return ENCLAVE_INIT_BASE_MS + num_pages * EADD_PER_PAGE_MS
+```
+
+> **重要假设**：本仿真假设所有节点的 Enclave 在系统启动时预初始化完成，每次推理不重新创建 Enclave。若需模拟冷启动场景，需将 `enclave_init_cost()` 加入首分区执行前的时延。
+
+### 4. 统一时延模型
+
+综合上述建模，一次分布式推理的端到端时延由以下部分组成：
+
+```
+T_total = T_init + T_attestation + Σ(T_partition) + Σ(T_network)
+
+其中：
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│ T_init (一次性/冷启动)                                                               │
+│   = Σ enclave_init_cost(node_i)                                  [每节点 30-200 ms] │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│ T_attestation (首次通信)                                                            │
+│   = num_node_pairs × (ATTESTATION_OVERHEAD + SIGMA_HANDSHAKE)      [每对 50-100 ms] │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│ T_partition (每分区)                                                                │
+│   = T_swap_in + T_exec × penalty + T_enclave_entry                                  │
+│   = (static_mem / PAGING_BW) + (workload × penalty) + 0.005 ms                      │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│ T_network (每次跨节点传输)                                                           │
+│   = RTT + (data_bytes / bandwidth) + T_tls_overhead                                 │
+│   注: 同节点内分区切换无网络开销，仅有 Context Switch 开销                            │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 5. 建模参数汇总
+
+以下参数定义在 `common.py` 中（或建议添加）：
+
+| 参数 | 含义 | 默认值 | 来源 |
+|------|------|--------|------|
+| `EPC_EFFECTIVE_MB` | SGX EPC 可用内存 | 93.0 MB | Intel SGX1 规格 - 元数据 |
+| `PAGING_BANDWIDTH_MB_PER_MS` | EPC 换页带宽 | 1.0 MB/ms | AES-NI 加密瓶颈实测 |
+| `PAGE_FAULT_OVERHEAD_MS` | 单页错误处理 | 0.03 ms | SGX 异常处理实测 |
+| `ENCLAVE_ENTRY_EXIT_OVERHEAD_MS` | ecall/ocall 开销 | 0.005 ms | Intel SGX SDK 测量 |
+| `RTT_EDGE_MS` | 边缘网络 RTT | 5.0 ms | 典型园区网络 |
+| `ATTESTATION_OVERHEAD_MS` | 远程证明开销 (DCAP) | 50.0 ms | DCAP 本地验证 |
+| `SIGMA_HANDSHAKE_MS` | SIGMA 密钥协商 | 20.0 ms | ECDH + 签名 |
+| `ENCLAVE_INIT_BASE_MS` | Enclave 初始化基础开销 | 30.0 ms | ECREATE + EINIT |
+
+### 6. 仿真简化说明
+
+为聚焦于调度算法对比，本仿真采用以下简化假设：
+
+| 简化项 | 假设 | 影响 |
+|--------|------|------|
+| **Enclave 预初始化** | 所有节点 Enclave 在推理前已初始化 | 不计 `T_init` |
+| **证明已完成** | 节点间已完成相互证明，安全信道已建立 | 不计 `T_attestation` |
+| **RTT 忽略** | 网络延迟仅考虑带宽，忽略固定 RTT | 适用于高吞吐场景 |
+| **TLS 开销忽略** | 安全信道加解密开销计入带宽限制 | 已隐式建模 |
+
+> 若需完整建模冷启动或动态节点加入场景，可在调度器中启用上述开销参数。
+
+---
+
 ## Intel SGX EPC 换页开销建模
 
 本仿真系统对 SGX 的两种换页开销进行了统一建模，确保不同算法之间的一致性。
@@ -222,7 +601,7 @@ python combine_charts.py
 | 开销类型 | 触发场景 | 建模方式 | 物理机制 |
 |----------|---------|---------|---------|
 | **Demand Paging** (按需换页) | 分区内存 > EPC | `calculate_penalty()` | 运行时持续发生的 page fault |
-| **Context Switch** (上下文切换) | 分区之间切换 | `swap_time = (mem1+mem2) / 2.0 MB/ms` | 一次性完整的 swap out + swap in |
+| **Context Switch** (上下文切换) | 分区之间切换 | `swap_time = (mem1+mem2) / 1.0 MB/ms` | 一次性完整的 swap out + swap in |
 
 ### 3. Demand Paging（惩罚因子）
 
@@ -248,7 +627,7 @@ Penalty = 1.0 + δ + γ × (ratio - 1)
 公式：
 ```
 swap_time = (prev_partition.memory + next_partition.memory) / PAGING_BANDWIDTH
-PAGING_BANDWIDTH ≈ 2 GB/s = 2.0 MB/ms（受 AES 加密引擎限制）
+PAGING_BANDWIDTH ≈ 1 GB/s = 1.0 MB/ms（受 AES 加密引擎限制）
 ```
 
 ### 5. 算法中的应用

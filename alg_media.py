@@ -1,6 +1,8 @@
 import networkx as nx
 import math
-from common import Partition, EPC_EFFECTIVE_MB, calculate_penalty, PAGE_SIZE_KB, PAGE_FAULT_OVERHEAD_MS, ENCLAVE_ENTRY_EXIT_OVERHEAD_MS, DEFAULT_PAGING_BW_MBPS, ScheduleResult
+from common import (Partition, EPC_EFFECTIVE_MB, calculate_penalty, PAGE_SIZE_KB,
+                    PAGE_FAULT_OVERHEAD_MS, ENCLAVE_ENTRY_EXIT_OVERHEAD_MS,
+                    DEFAULT_PAGING_BW_MBPS, ScheduleResult, network_latency)
 
 class MEDIAAlgorithm:
     def __init__(self, G, layers_map, servers, bandwidth_mbps):
@@ -15,6 +17,10 @@ class MEDIAAlgorithm:
         Algorithm 1: Select candidate edges for merging.
         MEDIA focuses on filling partitions efficiently. We relax the branching constraints 
         to allow merging parallel nodes if it leads to better resource utilization.
+        
+        Constraint 1: For multi-server scenarios, only merge edges where at least one endpoint 
+                      has degree 1 (to preserve parallelism).
+        Constraint 2: Prevent same-level conflicts to avoid creating invalid partition structures.
         """
         M = set()
 
@@ -27,14 +33,38 @@ class MEDIAAlgorithm:
 
         # Step 2: Iterate through all edges in topological order
         for u in nx.topological_sort(self.G):
+            # Traverse all successors of node u (i.e., edges (u,v) ∈ E)
             for v in self.G.successors(u):
-                # Rule 1: To preserve parallelism and avoid cycles, 
-                # do not merge if node has multiple successors or predecessors 
-                # (unless only one server is present).
-                if len(self.servers) > 1 and not (self.G.out_degree(u) == 1 or self.G.in_degree(v) == 1):
-                    continue
+                # Constraint 1: Only consider edges where "u has out-degree=1 OR v has in-degree=1"
+                # (corresponding to Algorithm 1 line 3 in the paper)
+                # For single-server scenarios, this constraint is relaxed
+                if len(self.servers) > 1:
+                    # Multi-server: require at least one endpoint with degree 1
+                    if not (self.G.out_degree(u) == 1 or self.G.in_degree(v) == 1):
+                        continue
+                else:
+                    # Single-server: use the looser constraint from MEDIA.py
+                    # Only skip if BOTH have degree != 1
+                    if self.G.in_degree(v) != 1 and self.G.out_degree(u) != 1:
+                        continue
                 
-                # Rule 2: DAG Check...
+                # Tentatively add the candidate edge, then check constraint 2
+                M.add((u, v))
+                violates_constraint_2 = False
+                
+                # Constraint 2: Traverse all successors w of u (prevent same-level duplicate merges)
+                for w in self.G.successors(u):
+                    for wp in self.G.predecessors(w):
+                        # Exclude the current edge (u,v) itself, only check other edges already in M
+                        if (wp, w) != (u, v) and (wp, w) in M and level_map[u] == level_map[w] - 1:
+                            violates_constraint_2 = True
+                            break
+                    if violates_constraint_2:
+                        break
+                
+                # If constraint 2 is violated, remove the edge from M
+                if violates_constraint_2:
+                    M.remove((u, v))
                     
         return M
     
@@ -99,7 +129,9 @@ class MEDIAAlgorithm:
         if len(self.servers) == 1:
             t_comm = 0.0
         else:
-            t_comm = vol / self.bandwidth_per_ms if vol > 0 else 0.0
+            vol_mb = vol / (1024 * 1024)
+            # Use RTT for merge decision (conservative: always add RTT if crossing servers)
+            t_comm = network_latency(vol_mb, self.bandwidth_mbps * 8 * 1000) if vol > 0 else 0.0
             
         # 3. Calculate paging overhead for separate partitions (sequential)
         def paging_cost(p):
@@ -203,7 +235,9 @@ class MEDIAAlgorithm:
                     if pred_s.id != s.id:
                         # Network communication needed
                         comm_data = sum(self.G[l1.id][l2.id]['weight'] for l1 in partitions_list[pred_id].layers for l2 in p.layers if self.G.has_edge(l1.id, l2.id))
-                        arrival = pred_ft + comm_data / self.bandwidth_per_ms
+                        comm_data_mb = comm_data / (1024 * 1024)
+                        comm_time = network_latency(comm_data_mb, self.bandwidth_mbps * 8 * 1000)
+                        arrival = pred_ft + comm_time
                         dependency_ready = max(dependency_ready, arrival)
                     else:
                         # Local dependency, data ready immediately when pred finishes

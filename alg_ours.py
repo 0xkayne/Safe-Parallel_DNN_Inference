@@ -1,7 +1,9 @@
 import networkx as nx
 import math
 import copy
-from common import Partition, EPC_EFFECTIVE_MB, calculate_penalty, PAGE_SIZE_KB, PAGE_FAULT_OVERHEAD_MS, ENCLAVE_ENTRY_EXIT_OVERHEAD_MS, DEFAULT_PAGING_BW_MBPS, ScheduleResult
+from common import (Partition, EPC_EFFECTIVE_MB, calculate_penalty, PAGE_SIZE_KB,
+                    PAGE_FAULT_OVERHEAD_MS, ENCLAVE_ENTRY_EXIT_OVERHEAD_MS,
+                    DEFAULT_PAGING_BW_MBPS, ScheduleResult, network_latency)
 
 class OursAlgorithm:
     """
@@ -106,7 +108,8 @@ class OursAlgorithm:
             
             max_succ = 0
             for succ in self.G.successors(node):
-                comm = self.G[node][succ]['weight'] / self.bandwidth_per_ms
+                comm_mb = self.G[node][succ]['weight'] / (1024 * 1024)
+                comm = network_latency(comm_mb, self.bandwidth_mbps)
                 max_succ = max(max_succ, comm + ranks[succ])
             ranks[node] = w + max_succ
         return ranks
@@ -581,7 +584,11 @@ class OursAlgorithm:
                 ready_time = 0.0
                 for pred_id in part_dag.predecessors(p.id):
                     ps_id, p_ft = assignment[pred_id]
-                    comm = 0.0 if ps_id == s.id else part_dag[pred_id][p.id]['weight'] / self.bandwidth_per_ms
+                    if ps_id == s.id:
+                        comm = 0.0
+                    else:
+                        comm_mb = part_dag[pred_id][p.id]['weight'] / (1024 * 1024)
+                        comm = network_latency(comm_mb, self.bandwidth_mbps)
                     ready_time = max(ready_time, p_ft + comm)
                 
                 start_exec = max(server_free_time[s.id], ready_time) + p_cost
@@ -637,7 +644,11 @@ class OursAlgorithm:
                     # Robust check: if predecessor not assigned, skip or assume 0
                     if pred_id in assignment:
                         pred_s, pred_ft = assignment[pred_id], finish[pred_id]
-                        comm = 0.0 if pred_s.id == s.id else pg[pred_id][p.id]['weight'] / self.bandwidth_per_ms
+                        if pred_s.id == s.id:
+                            comm = 0.0
+                        else:
+                            comm_mb = pg[pred_id][p.id]['weight'] / (1024 * 1024)
+                            comm = network_latency(comm_mb, self.bandwidth_mbps)
                         ready_time = max(ready_time, pred_ft + comm)
                 
                 start_exec = max(server_free_time[s.id], ready_time) + p_cost
