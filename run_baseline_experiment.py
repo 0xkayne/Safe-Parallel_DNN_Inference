@@ -22,7 +22,7 @@ from alg_ours import OursAlgorithm
 from alg_occ import OCCAlgorithm
 
 # ==================== 实验配置 ====================
-DATASETS_DIR = 'datasets'
+DATASETS_DIR = 'datasets_260120'
 OUTPUT_FILE = 'results_baseline.csv'
 
 # 固定参数
@@ -71,7 +71,7 @@ def run_baseline_experiment():
             print(f"  ✓ 模型加载成功 (节点数: {len(G.nodes)}, 边数: {len(G.edges)})")
             
             # 创建服务器实例
-            servers = [Server(i, power_ratio=1.0) for i in range(N_SERVERS)]
+            servers = [Server(i, server_type="Xeon_IceLake") for i in range(N_SERVERS)]
             
             # 初始化结果字典
             result = {
@@ -85,7 +85,8 @@ def run_baseline_experiment():
             try:
                 dina = DINAAlgorithm(G, layers_map, servers, BANDWIDTH_MBPS)
                 parts_dina = dina.run()
-                time_dina = dina.schedule(parts_dina)
+                dina_res = dina.schedule(parts_dina)
+                time_dina = dina_res.latency
                 result['DINA_Latency'] = round(time_dina, 2)
                 result['DINA_Partitions'] = len(parts_dina)
                 print(f"  ✓ DINA: {time_dina:.2f} ms ({len(parts_dina)} 个分区)")
@@ -99,7 +100,8 @@ def run_baseline_experiment():
             try:
                 media = MEDIAAlgorithm(G, layers_map, servers, BANDWIDTH_MBPS)
                 parts_media = media.run()
-                time_media = media.schedule(parts_media)
+                media_res = media.schedule(parts_media)
+                time_media = media_res.latency
                 result['MEDIA_Latency'] = round(time_media, 2)
                 result['MEDIA_Partitions'] = len(parts_media)
                 print(f"  ✓ MEDIA: {time_media:.2f} ms ({len(parts_media)} 个分区)")
@@ -113,7 +115,8 @@ def run_baseline_experiment():
             try:
                 ours = OursAlgorithm(G, layers_map, servers, BANDWIDTH_MBPS)
                 parts_ours = ours.run()
-                time_ours = ours.schedule(parts_ours)
+                ours_res = ours.schedule(parts_ours)
+                time_ours = ours_res.latency
                 result['Ours_Latency'] = round(time_ours, 2)
                 result['Ours_Partitions'] = len(parts_ours)
                 print(f"  ✓ Ours: {time_ours:.2f} ms ({len(parts_ours)} 个分区)")
@@ -127,7 +130,8 @@ def run_baseline_experiment():
             try:
                 occ = OCCAlgorithm(G, layers_map, servers, BANDWIDTH_MBPS)
                 parts_occ = occ.run()
-                time_occ = occ.schedule(parts_occ)
+                occ_res = occ.schedule(parts_occ)
+                time_occ = occ_res.latency
                 result['OCC_Latency'] = round(time_occ, 2)
                 result['OCC_Partitions'] = len(parts_occ)
                 print(f"  ✓ OCC: {time_occ:.2f} ms ({len(parts_occ)} 个分区)")

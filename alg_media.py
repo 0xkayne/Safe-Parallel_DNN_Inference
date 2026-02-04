@@ -72,7 +72,9 @@ class MEDIAAlgorithm:
     def _would_cause_cycle(self, p1, p2):
         """
         Rigorous cycle detection for MEDIA.
-        A merge u + v causes a cycle if there's a path from v to u in current partition graph.
+        A merge of p1 and p2 causes a cycle if there is an *indirect* path between them 
+        (e.g., p1 -> p3 -> p2) in addition to the direct connection.
+        If such a path exists, merging p1 and p2 would engulf p3, creating a cycle p1p2 -> p3 -> p1p2.
         """
         # Create a fresh partition DAG for the check
         pg = nx.DiGraph()
@@ -86,11 +88,21 @@ class MEDIAAlgorithm:
             if pu_id != pv_id:
                 pg.add_edge(pu_id, pv_id)
         
-        # Merge p1 and p2 conceptually. Check if a path exists from p2.id (v) back to p1.id (u)
-        # However, at this stage pu and pv are neighbors u->v.
-        # Check if there is already a path from the node that would be 'downstream' to 'upstream'
+        # We are proposing to merge p1 and p2.
+        # 1. Check if there is an indirect path p1 -> ... -> p2 
+        #    (We must exclude the direct edge p1->p2 which we are trying to collapse)
+        if pg.has_edge(p1.id, p2.id):
+            pg.remove_edge(p1.id, p2.id)
+        if nx.has_path(pg, p1.id, p2.id):
+            return True
+        
+        # 2. Check the reverse direction p2 -> ... -> p1
+        #    (Shouldn't exist in a DAG usually, but good for completeness)
+        if pg.has_edge(p2.id, p1.id):
+            pg.remove_edge(p2.id, p1.id)
         if nx.has_path(pg, p2.id, p1.id):
             return True
+            
         return False
 
     def _merge_check(self, part1, part2):
