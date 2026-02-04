@@ -23,7 +23,7 @@ from alg_occ import OCCAlgorithm
 
 # ==================== 实验配置 ====================
 DATASETS_DIR = 'datasets_260120'
-OUTPUT_FILE = 'results_baseline.csv'
+OUTPUT_FILE = 'results_baseline'
 
 # 固定参数
 N_SERVERS = 4
@@ -156,10 +156,11 @@ def run_baseline_experiment():
         return
     
     df = pd.DataFrame(results)
-    df.to_csv(OUTPUT_FILE, index=False)
+    FINAL_OUTPUT_FILE = OUTPUT_FILE + "_" + str(N_SERVERS) + "_" + str(BANDWIDTH_MBPS) + ".csv"
+    df.to_csv(FINAL_OUTPUT_FILE, index=False)
     
     print("=" * 80)
-    print(f"实验完成！结果已保存到: {OUTPUT_FILE}")
+    print(f"实验完成！结果已保存到: {FINAL_OUTPUT_FILE}")
     print(f"结束时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 80)
     print()
