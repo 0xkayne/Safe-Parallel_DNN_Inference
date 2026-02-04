@@ -101,7 +101,14 @@ def network_latency(data_mb, bandwidth_mbps, is_first_hop=False):
     
     return rtt + transmission_time + attestation
 
-def hpa_cost(layer, k: int, bandwidth_mbps: float, efficiency_gamma: float = 0.9) -> float:
+def hpa_cost(
+    layer, 
+    k: int, 
+    bandwidth_mbps: float, 
+    efficiency_gamma: float = 0.9,
+    activation_split_ratio: float = 1.0,  # NEW: 激活切分比例 (1.0=完全切分, 0.0=完全复制)
+    sync_probability: float = 0.5         # NEW: 同步概率 (0.5=双层摊销, 1.0=每层同步)
+) -> float:
     """
     Compute HPA cost for splitting a layer into k parallel shards.
     
@@ -110,34 +117,60 @@ def hpa_cost(layer, k: int, bandwidth_mbps: float, efficiency_gamma: float = 0.9
         k: Parallelism degree (number of shards)
         bandwidth_mbps: Network bandwidth in Mbps
         efficiency_gamma: Parallel efficiency factor (default 0.9)
+        activation_split_ratio: Fraction of activation memory that is split (default 1.0)
+            - 1.0: Activation fully split (e.g., Column Parallel FC output)
+            - 0.0: Activation fully replicated (e.g., BatchNorm requiring full statistics)
+        sync_probability: Probability that this layer requires AllReduce sync (default 0.5)
+            - 1.0: Always sync (isolated TP layer)
+            - 0.5: Amortized sync (Megatron-style: 2 layers share 1 AllReduce)
+            - 0.0: No sync (intermediate layer in TP group)
     
     Returns:
         float: Total cost in ms = compute + paging + sync
     
-    Cost Model:
-        Cost(v, k) = T_comp/k^γ + Penalty_mem(M/k) * T_comp + T_sync(k)
+    Cost Model (Optimized):
+        Cost(v, k) = T_comp/k^γ + Penalty_mem(M_shard) + T_sync(k) * P_sync
+        
+        Where M_shard = (M_weight/k) + M_activation * (1 - α + α/k)
+              α = activation_split_ratio
     """
     # 1. Compute cost with efficiency factor
     t_comp_original = layer.workload  # ms
     t_comp = t_comp_original / (k ** efficiency_gamma)
     
-    # 2. Memory penalty (using existing calculate_penalty)
-    # Simplified: assume weights split, activations replicated
+    # 2. Memory penalty (FIXED: activation memory is also split)
     m_weight = layer.weight_memory + layer.bias_memory
     m_activation = layer.activation_memory
-    m_split = (m_weight / k) + m_activation  # MB per shard
+    
+    # Calculate per-shard memory based on split strategy:
+    # - Weights: always split equally
+    # - Activation: split according to activation_split_ratio
+    #   - If ratio=1.0: m_activation / k (fully split)
+    #   - If ratio=0.0: m_activation (fully replicated)
+    #   - General: m_activation * (1 - ratio) + m_activation * ratio / k
+    m_activation_shard = m_activation * (1.0 - activation_split_ratio) + \
+                         m_activation * activation_split_ratio / k
+    m_split = (m_weight / k) + m_activation_shard
     
     penalty = calculate_penalty(m_split)
-    t_paging = (penalty - 1.0) * t_comp  # Extra time due to thrashing
     
-    # 3. Sync cost (AllReduce: factor 2 for Reduce-Scatter + All-Gather)
+    # Separate paging costs into runtime penalty and init overhead
+    # a) Runtime penalty: scaling factor on compute time (only if penalty > 1)
+    t_runtime_penalty = (penalty - 1.0) * t_comp if penalty > 1.0 else 0.0
+    
+    # b) Init overhead: fixed cost based on memory size (optional)
+    t_init = enclave_init_cost(m_split) if ENABLE_ENCLAVE_INIT else 0.0
+    
+    t_paging = t_runtime_penalty + t_init
+    
+    # 3. Sync cost (FIXED: apply sync_probability to amortize AllReduce)
     if k > 1:
         # Ring AllReduce: 2 * (k-1)/k * data_volume
-        # k=2: 1.0x (Direct exchange)
-        # k=8: 1.75x
         sync_bytes = layer.output_bytes * 2 * (k - 1) / k
         sync_mb = sync_bytes / (1024 * 1024)
-        t_sync = network_latency(sync_mb, bandwidth_mbps)
+        
+        # Apply sync probability factor (default 0.5 for Megatron-style TP)
+        t_sync = network_latency(sync_mb, bandwidth_mbps) * sync_probability
     else:
         t_sync = 0.0
     

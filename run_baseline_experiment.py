@@ -27,7 +27,7 @@ OUTPUT_FILE = 'results_baseline.csv'
 
 # 固定参数
 N_SERVERS = 4
-BANDWIDTH_MBPS = 100
+BANDWIDTH_MBPS = 10
 
 # ==================== 主实验函数 ====================
 def run_baseline_experiment():
