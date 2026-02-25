@@ -650,3 +650,215 @@ PAGING_BANDWIDTH_MB_PER_MS = 2.0  # 换页带宽 (2 GB/s)
 此统一建模确保了：
 - **单服务器时**：所有算法的时延一致（都包含 context switch 开销）
 - **多服务器时**：网络通信与本地换页开销互斥（不会重复计算）
+
+---
+
+## HPA 张量并行 (Tensor Parallelism) 仿真模型
+
+本节详细介绍 `common.py` 中 `hpa_cost()` 函数所实现的 **张量并行代价模型**。该模型用于 HPA (Hybrid Parallel Algorithm) 算法决策"是否将某个算子拆分为多个并行分片"。
+
+### 1. 张量并行基本原理
+
+**张量并行 (Tensor Parallelism, TP)** 是将单个算子（如矩阵乘法）的计算沿某一张量维度切分到多个设备上并行执行的技术。
+
+```
+                    ┌──────────────────────────────────────────────────────┐
+                    │           原始算子 (单节点)                           │
+                    │                                                       │
+                    │   X [M×K] × W [K×N] = Y [M×N]                         │
+                    │   计算量: O(M×K×N)                                    │
+                    │   内存: O(K×N) 权重 + O(M×N) 激活                     │
+                    └──────────────────────────────────────────────────────┘
+                                           │
+                                           │ 张量并行 (k=2)
+                                           ▼
+    ┌─────────────────────────────────┐         ┌─────────────────────────────────┐
+    │         分片 0                   │         │         分片 1                   │
+    │                                  │         │                                  │
+    │  X × W₀ [K×N/2] = Y₀ [M×N/2]     │         │  X × W₁ [K×N/2] = Y₁ [M×N/2]     │
+    │  计算量: O(M×K×N/2)              │         │  计算量: O(M×K×N/2)              │
+    │  内存: O(K×N/2) + O(M×N/2)       │         │  内存: O(K×N/2) + O(M×N/2)       │
+    └───────────────┬─────────────────┘         └───────────────┬─────────────────┘
+                    │                                           │
+                    └──────────────────┬────────────────────────┘
+                                       │ AllReduce 同步
+                                       ▼
+                              Y = Concat(Y₀, Y₁) 或 Y = Sum(Y₀, Y₁)
+```
+
+### 2. HPA 代价模型公式
+
+`hpa_cost()` 函数计算将层拆分为 $k$ 个并行分片后的**总执行代价**：
+
+$$
+\text{Cost}(v, k) = T_{\text{comp}} + T_{\text{paging}} + T_{\text{sync}}
+$$
+
+#### 2.1 计算时间 ($T_{\text{comp}}$)
+
+```python
+t_comp = layer.workload / (k ** efficiency_gamma)
+```
+
+- **$\gamma$ (efficiency_gamma)**：并行效率因子，默认 0.9
+- **物理含义**：由于 Amdahl 定律、负载不均、启动开销等因素，实际加速比无法达到理想的 $k$ 倍
+- **示例**：$k=2, \gamma=0.9$ → 加速比 $= 2^{0.9} \approx 1.87$（而非 2.0）
+
+#### 2.2 内存惩罚 ($T_{\text{paging}}$)
+
+```python
+m_activation_shard = m_activation * (1 - α) + m_activation * α / k
+m_split = (m_weight / k) + m_activation_shard
+penalty = calculate_penalty(m_split)
+t_paging = (penalty - 1.0) * t_comp  # if penalty > 1
+```
+
+**内存切分模型**：
+
+| 内存组件 | 切分方式 | 每分片占用 |
+|---------|---------|-----------|
+| 权重 (Weight) | 总是按 $k$ 等分 | $M_w / k$ |
+| 激活 (Activation) | 按 `activation_split_ratio` ($\alpha$) 控制 | $M_a \times (1-\alpha) + M_a \times \alpha / k$ |
+
+- **$\alpha = 1.0$**（默认）：激活完全切分，适用于 Column Parallel FC
+- **$\alpha = 0.0$**：激活完全复制，适用于 BatchNorm 等需要完整统计的层
+
+**惩罚因子**：当 $M_{\text{split}} > \text{EPC}$ 时，触发 SGX 换页，`calculate_penalty()` 返回 > 1.0 的惩罚乘数。
+
+#### 2.3 同步开销 ($T_{\text{sync}}$)
+
+```python
+sync_bytes = layer.output_bytes * 2 * (k - 1) / k
+t_sync = network_latency(sync_mb, bandwidth) * sync_probability
+```
+
+**Ring AllReduce 通信量公式**：
+
+$$
+\text{Sync Data} = 2 \times \frac{k-1}{k} \times \text{Output Size}
+$$
+
+| $k$ | 通信量系数 | 说明 |
+|-----|-----------|------|
+| 2 | $1.0 \times$ | 两节点直接交换 |
+| 4 | $1.5 \times$ | 3 个步骤的 Ring 交换 |
+| 8 | $1.75 \times$ | 7 个步骤的 Ring 交换 |
+
+### 3. `sync_probability` 参数深度解析
+
+**核心问题**：在实际的 Tensor Parallelism 策略中，是否每个被拆分的层都需要进行 AllReduce？
+
+**答案**：**不是**。现代 TP 策略（如 Megatron-LM）采用 **Column-Row 双层结构**，两层共享一次 AllReduce。
+
+#### 3.1 Megatron-LM 风格 FFN 模块
+
+```
+输入 X (完整，需复制到各分片)
+        │
+        ├─────────────────────────────────────────────┐
+        │                                              │
+        ▼                                              ▼
+┌───────────────────┐                      ┌───────────────────┐
+│  Column FC1 (分片0) │                      │  Column FC1 (分片1) │
+│  X × W₁₀ = H₀       │                      │  X × W₁₁ = H₁       │
+│  (无需同步)          │                      │  (无需同步)          │
+└─────────┬─────────┘                      └─────────┬─────────┘
+          │ 部分激活 H₀                              │ 部分激活 H₁
+          ▼                                          ▼
+┌───────────────────┐                      ┌───────────────────┐
+│   Row FC2 (分片0)   │                      │   Row FC2 (分片1)   │
+│  H₀ × W₂₀ = P₀      │                      │  H₁ × W₂₁ = P₁      │
+│  输出: 部分和        │                      │  输出: 部分和        │
+└─────────┬─────────┘                      └─────────┬─────────┘
+          │ Partial Sum P₀                           │ Partial Sum P₁
+          │                                          │
+          └──────────────┬───────────────────────────┘
+                         │
+                         ▼
+              ┌─────────────────────┐
+              │     AllReduce       │  ← 仅在此处同步 1 次
+              │    P₀ + P₁ = Y      │
+              └─────────────────────┘
+                         │
+                         ▼
+                    输出 Y (完整)
+```
+
+**关键观察**：
+- **Column FC1**：输出是独立的部分激活（Partial Activation），**无需同步**
+- **Row FC2**：输出是部分和（Partial Sum），**需要 AllReduce**
+- **两层共享一次同步**，摊销后每层平均同步概率 = 0.5
+
+#### 3.2 `sync_probability` 取值指南
+
+| 值 | 物理含义 | 适用场景 |
+|----|---------|---------|
+| **1.0** | 每层独立同步 | 孤立的 TP 层、保守估计 |
+| **0.5** | 双层共享一次同步 | **Megatron-style FFN (默认)** |
+| **0.0** | 无需同步 | TP 组中间层（如 Column FC1 到 Row FC2） |
+
+**为什么默认值是 0.5**：
+
+大多数 Transformer 模型的 FFN 模块采用 Column-Row 结构，设置 `sync_probability=0.5` 能够：
+- ✅ 准确反映平均同步开销
+- ✅ 避免过度悲观的代价估算
+- ✅ 让 HPA 算法更积极地选择 Tensor Parallelism
+
+### 4. 完整代价公式
+
+综合上述，`hpa_cost()` 的完整数学表达式为：
+
+$$
+\text{Cost}(v, k) = \underbrace{\frac{T_{\text{comp}}}{k^\gamma}}_{\text{并行计算}} + \underbrace{(\text{Penalty}(M_{\text{shard}}) - 1) \times T_{\text{comp}}}_{\text{内存惩罚}} + \underbrace{\frac{2(k-1)}{k} \times \frac{\text{Output}}{BW} \times P_{\text{sync}}}_{\text{同步通信}}
+$$
+
+其中：
+- $M_{\text{shard}} = \frac{M_w}{k} + M_a \times (1 - \alpha + \frac{\alpha}{k})$
+- $\alpha$ = `activation_split_ratio`
+- $P_{\text{sync}}$ = `sync_probability`
+- $\gamma$ = `efficiency_gamma`
+- $BW$ = `bandwidth_mbps` (转换为 MB/ms)
+
+### 5. 函数接口
+
+```python
+def hpa_cost(
+    layer,                              # DNNLayer 对象
+    k: int,                             # 并行度 (1, 2, 4, 8...)
+    bandwidth_mbps: float,              # 网络带宽 (Mbps)
+    efficiency_gamma: float = 0.9,      # 并行效率因子
+    activation_split_ratio: float = 1.0,# 激活切分比例 (0.0~1.0)
+    sync_probability: float = 0.5       # 同步概率 (0.0~1.0)
+) -> float:                             # 返回: 总代价 (ms)
+```
+
+### 6. 使用示例
+
+```python
+from common import hpa_cost
+
+# 场景1: 保守估计 (旧模型行为)
+cost_old = hpa_cost(layer, k=2, bw=500, 
+                    activation_split_ratio=0.0, sync_probability=1.0)
+
+# 场景2: Megatron-style 优化估计 (默认)
+cost_new = hpa_cost(layer, k=2, bw=500)  
+# 等价于: activation_split_ratio=1.0, sync_probability=0.5
+
+# 场景3: 自定义 TP 策略 (如 4 层共享 1 次同步)
+cost_custom = hpa_cost(layer, k=4, bw=500, sync_probability=0.25)
+```
+
+### 7. 建模验证
+
+以 BERT encoder0_ffn_fc1 层为例 (Workload=20.67ms, Output=1.5MB, BW=500Mbps):
+
+| 模型配置 | k=1 | k=2 | k=4 | k=8 |
+|---------|-----|-----|-----|-----|
+| **OLD** (α=0, P=1.0) | 20.67 ms | 40.08 ms | 52.37 ms | 56.10 ms |
+| **NEW** (α=1, P=0.5) | 20.67 ms | 25.58 ms | 26.44 ms | 26.68 ms |
+
+**结论**：
+- OLD 模型：k=2 代价为 k=1 的 **194%**（高估通信开销，TP 看起来"不值得"）
+- NEW 模型：k=2 代价为 k=1 的 **124%**（合理估算，TP 虽有开销但显著降低内存压力）
+
