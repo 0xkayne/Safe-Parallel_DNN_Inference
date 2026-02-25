@@ -1,3 +1,5 @@
+# 这份代码是比较真实还原 MEDIA 算法的实现，但不一定适配当前代码体系
+
 import networkx as nx
 import math
 from setup import (
