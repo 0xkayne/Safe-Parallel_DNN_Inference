@@ -44,10 +44,15 @@ from alg_occ import OCCAlgorithm
 
 # ============ Configuration ============
 DATASETS_DIR = 'datasets_260120'
-RESULTS_DIR = 'results_260120'
-SERVER_CHART_DIR = 'server-chart_260120'
-NETWORK_CHART_DIR = 'network-chart_260120'
-ABLATION_STUDY_DIR = 'ablation_study_chart_260120'
+RESULTS_DIR = 'exp_results'
+SERVER_CHART_DIR = 'exp_results/exp3_server_ablation'
+NETWORK_CHART_DIR = 'exp_results/exp2_network_ablation'
+ABLATION_STUDY_DIR = 'exp_results/ablation_runs'
+EXP1_COMPARISON_DIR = 'exp_results/exp1_fixed_comparison'
+
+# Experiment 1: fixed comparison config
+FIXED_COMPARISON_SERVERS = 4    # 4x homogeneous Xeon_IceLake
+FIXED_COMPARISON_BANDWIDTH = 100  # Mbps
 
 # Global variable to store current experiment timestamp folder
 CURRENT_EXP_DIR = None
@@ -70,7 +75,7 @@ INCREMENTAL_SERVER_ORDER = HETEROGENEOUS_SERVER_CONFIG
 INCREMENTAL_COUNTS = list(range(1, len(INCREMENTAL_SERVER_ORDER) + 1))
 
 # Network ablation experiment config
-BANDWIDTHS = [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]  # Mbps
+BANDWIDTHS = [0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500]  # Mbps
 SERVERS_FOR_NETWORK_EXP = 4
 
 
@@ -94,7 +99,8 @@ MODEL_NAME_MAP = {
 
 def ensure_dirs():
     """Ensure output directories exist."""
-    for d in [RESULTS_DIR, SERVER_CHART_DIR, NETWORK_CHART_DIR]:
+    for d in [RESULTS_DIR, SERVER_CHART_DIR, NETWORK_CHART_DIR,
+              'figures/exp2', 'figures/exp3', 'figures/exp1']:
         os.makedirs(d, exist_ok=True)
 
 
@@ -181,7 +187,7 @@ def run_server_ablation():
                 'Server number': n_servers,
                 'OCC': occ.schedule(occ.run()).latency,
                 'DINA': dina.schedule(dina.run()).latency,
-                'MEIDA': media.schedule(media.run()).latency,
+                'MEDIA': media.schedule(media.run()).latency,
                 'Ours': ours.schedule(ours.run()).latency,
             })
         
@@ -235,7 +241,7 @@ def run_network_ablation():
                 'Bandwidth(Mbps)': bw,
                 'OCC': occ.schedule(occ.run()).latency,
                 'DINA': dina.schedule(dina.run()).latency,
-                'MEIDA': media.schedule(media.run()).latency,
+                'MEDIA': media.schedule(media.run()).latency,
                 'Ours': ours.schedule(ours.run()).latency,
             })
         
@@ -260,18 +266,18 @@ def create_server_chart(csv_file, model_name, output_dir):
     plt.style.use('seaborn-v0_8-whitegrid')
     fig, ax = plt.subplots(figsize=(10, 6), dpi=150)
     
-    colors = {'OCC': '#E74C3C', 'DINA': '#3498DB', 'MEIDA': '#2ECC71', 'Ours': '#9B59B6'}
-    markers = {'OCC': 's', 'DINA': '^', 'MEIDA': 'D', 'Ours': 'o'}
-    linestyles = {'OCC': '-', 'DINA': (0, (5, 2)), 'MEIDA': (0, (1, 1)), 'Ours': '-'}
-    markersizes = {'OCC': 9, 'DINA': 12, 'MEIDA': 8, 'Ours': 10}
-    linewidths = {'OCC': 2.5, 'DINA': 3.0, 'MEIDA': 2.0, 'Ours': 2.5}
+    colors = {'OCC': '#E74C3C', 'DINA': '#3498DB', 'MEDIA': '#2ECC71', 'Ours': '#9B59B6'}
+    markers = {'OCC': 's', 'DINA': '^', 'MEDIA': 'D', 'Ours': 'o'}
+    linestyles = {'OCC': '-', 'DINA': (0, (5, 2)), 'MEDIA': (0, (1, 1)), 'Ours': '-'}
+    markersizes = {'OCC': 9, 'DINA': 12, 'MEDIA': 8, 'Ours': 10}
+    linewidths = {'OCC': 2.5, 'DINA': 3.0, 'MEDIA': 2.0, 'Ours': 2.5}
     
     x = df['Server number']
-    for algo in ['OCC', 'DINA', 'MEIDA', 'Ours']:
+    for algo in ['OCC', 'DINA', 'MEDIA', 'Ours']:
         ax.plot(x, df[algo], label=algo, color=colors[algo], marker=markers[algo],
                 markersize=markersizes[algo], linewidth=linewidths[algo],
                 linestyle=linestyles[algo], markeredgecolor='white',
-                markeredgewidth=1.5, zorder=3 if algo in ['DINA', 'MEIDA'] else 2)
+                markeredgewidth=1.5, zorder=3 if algo in ['DINA', 'MEDIA'] else 2)
     
     ax.set_xlabel('Number of Servers', fontsize=14, fontweight='bold')
     ax.set_ylabel('Inference Latency (ms)', fontsize=14, fontweight='bold')
@@ -282,8 +288,8 @@ def create_server_chart(csv_file, model_name, output_dir):
     ax.set_xticklabels(x, fontsize=12)
     ax.tick_params(axis='y', labelsize=12)
     
-    y_min = df[['OCC', 'DINA', 'MEIDA', 'Ours']].min().min() * 0.90
-    y_max = df[['OCC', 'DINA', 'MEIDA', 'Ours']].max().max() * 1.08
+    y_min = df[['OCC', 'DINA', 'MEDIA', 'Ours']].min().min() * 0.90
+    y_max = df[['OCC', 'DINA', 'MEDIA', 'Ours']].max().max() * 1.08
     ax.set_ylim(y_min, y_max)
     
     ax.legend(loc='upper right', fontsize=12, frameon=True, 
@@ -310,13 +316,15 @@ def generate_server_charts():
     print("\n" + "=" * 60)
     print("Generating Server Ablation Charts")
     print("=" * 60)
-    
-    if CURRENT_EXP_DIR:
-        plot_dir = os.path.join(CURRENT_EXP_DIR, 'server_charts')
-    else:
-        plot_dir = SERVER_CHART_DIR
-    
-    print(f"  Using data from: {plot_dir}")
+
+    # Data source: always read from the authoritative exp3 directory
+    data_dir = SERVER_CHART_DIR
+    # Figures output: always goes to figures/exp3/
+    plot_dir = 'figures/exp3'
+    os.makedirs(plot_dir, exist_ok=True)
+
+    print(f"  Reading data from: {data_dir}")
+    print(f"  Saving figures to: {plot_dir}")
     
     models = [
         ('server_hetero_incremental_DistillBERT-base.csv', 'DistillBERT-base'),
@@ -334,7 +342,7 @@ def generate_server_charts():
     ]
     
     for csv_file, model_name in models:
-        full_path = os.path.join(plot_dir, csv_file)
+        full_path = os.path.join(data_dir, csv_file)
         if os.path.exists(full_path):
             try:
                 png_file, pdf_file = create_server_chart(full_path, model_name, plot_dir)
@@ -343,7 +351,7 @@ def generate_server_charts():
                 print(f"  [ERROR] {model_name}: {str(e)}")
         else:
             print(f"  [SKIP] {model_name}: File not found - {csv_file}")
-    
+
     print("  All server charts generated!")
 
 
@@ -356,19 +364,19 @@ def create_network_chart(csv_file, model_name, output_dir):
     plt.style.use('seaborn-v0_8-whitegrid')
     fig, ax = plt.subplots(figsize=(10, 6), dpi=150)
     
-    colors = {'OCC': '#E74C3C', 'DINA': '#3498DB', 'MEIDA': '#2ECC71', 'Ours': '#9B59B6'}
-    markers = {'OCC': 's', 'DINA': '^', 'MEIDA': 'D', 'Ours': 'o'}
-    linestyles = {'OCC': '-', 'DINA': (0, (5, 2)), 'MEIDA': (0, (1, 1)), 'Ours': '-'}
-    markersizes = {'OCC': 9, 'DINA': 12, 'MEIDA': 8, 'Ours': 10}
-    linewidths = {'OCC': 2.5, 'DINA': 3.0, 'MEIDA': 2.0, 'Ours': 2.5}
+    colors = {'OCC': '#E74C3C', 'DINA': '#3498DB', 'MEDIA': '#2ECC71', 'Ours': '#9B59B6'}
+    markers = {'OCC': 's', 'DINA': '^', 'MEDIA': 'D', 'Ours': 'o'}
+    linestyles = {'OCC': '-', 'DINA': (0, (5, 2)), 'MEDIA': (0, (1, 1)), 'Ours': '-'}
+    markersizes = {'OCC': 9, 'DINA': 12, 'MEDIA': 8, 'Ours': 10}
+    linewidths = {'OCC': 2.5, 'DINA': 3.0, 'MEDIA': 2.0, 'Ours': 2.5}
     
     x = df['Bandwidth(Mbps)']
-    for algo in ['OCC', 'DINA', 'MEIDA', 'Ours']:
+    for algo in ['OCC', 'DINA', 'MEDIA', 'Ours']:
         y_data = df[algo].copy()
         ax.plot(x, y_data, label=algo, color=colors[algo], marker=markers[algo],
                 markersize=markersizes[algo], linewidth=linewidths[algo],
                 linestyle=linestyles[algo], markeredgecolor='white',
-                markeredgewidth=1.5, zorder=3 if algo in ['DINA', 'MEIDA'] else 2)
+                markeredgewidth=1.5, zorder=3 if algo in ['DINA', 'MEDIA'] else 2)
     
     ax.set_xlabel('Network Bandwidth (Mbps)', fontsize=14, fontweight='bold')
     ax.set_ylabel('Inference Latency (ms)', fontsize=14, fontweight='bold')
@@ -416,14 +424,16 @@ def generate_network_charts():
     print("\n" + "=" * 60)
     print("Generating Network Ablation Charts")
     print("=" * 60)
-    
-    if CURRENT_EXP_DIR:
-        plot_dir = os.path.join(CURRENT_EXP_DIR, 'network_charts')
-    else:
-        plot_dir = NETWORK_CHART_DIR
-    
-    print(f"  Using data from: {plot_dir}")
-    
+
+    # Data source: always read from the authoritative exp2 directory
+    data_dir = NETWORK_CHART_DIR
+    # Figures output: always goes to figures/exp2/
+    plot_dir = 'figures/exp2'
+    os.makedirs(plot_dir, exist_ok=True)
+
+    print(f"  Reading data from: {data_dir}")
+    print(f"  Saving figures to: {plot_dir}")
+
     models = [
         ('network_DistillBERT-base.csv', 'DistillBERT-base'),
         ('network_ALBERT-base.csv', 'ALBERT-base'),
@@ -438,9 +448,9 @@ def generate_network_charts():
         ('network_ViT-large.csv', 'ViT-large'),
         ('network_inceptionV3.csv', 'InceptionV3'),
     ]
-    
+
     for csv_file, model_name in models:
-        full_path = os.path.join(plot_dir, csv_file)
+        full_path = os.path.join(data_dir, csv_file)
         if os.path.exists(full_path):
             try:
                 png_file, pdf_file = create_network_chart(full_path, model_name, plot_dir)
@@ -449,7 +459,7 @@ def generate_network_charts():
                 print(f"  [ERROR] {model_name}: {str(e)}")
         else:
             print(f"  [SKIP] {model_name}: File not found - {csv_file}")
-    
+
     print("  All network charts generated!")
 
 
@@ -503,53 +513,147 @@ def combine_charts(image_dir, output_filename, cols=2, pattern="*_chart.png"):
 
 
 def generate_combined_charts():
-    """Generate combined charts in the timestamped experiment folder."""
-    if CURRENT_EXP_DIR is None:
-        print("[ERROR] Experiment folder not created!")
-        return
-    
+    """Generate combined overview charts from figures/exp2 and figures/exp3."""
     print("\n" + "=" * 60)
     print("Generating Combined Charts")
     print("=" * 60)
-    
-    server_dest = os.path.join(CURRENT_EXP_DIR, 'server_charts')
-    network_dest = os.path.join(CURRENT_EXP_DIR, 'network_charts')
-    
+
+    server_fig_dir = 'figures/exp3'
+    network_fig_dir = 'figures/exp2'
+
     # Combine server charts
     print("\nCombining server charts...")
-    server_combined = os.path.join(CURRENT_EXP_DIR, 'combined_server_charts.png')
-    combine_charts(server_dest, server_combined, cols=2, 
-                  pattern="server_hetero_incremental_*_chart.png")
-    
+    server_combined = 'figures/exp3/combined_server_charts.png'
+    combine_charts(server_fig_dir, server_combined, cols=2,
+                   pattern="server_hetero_incremental_*_chart.png")
+
     # Combine network charts
     print("\nCombining network charts...")
-    network_combined = os.path.join(CURRENT_EXP_DIR, 'combined_network_charts.png')
-    combine_charts(network_dest, network_combined, cols=2, 
-                  pattern="network_*_chart.png")
-    
-    # Create summary file
-    summary_file = os.path.join(CURRENT_EXP_DIR, 'experiment_info.txt')
-    
-    # Count charts
-    server_pngs = glob.glob(os.path.join(server_dest, '*_chart.png'))
-    network_pngs = glob.glob(os.path.join(network_dest, '*_chart.png'))
-    
-    with open(summary_file, 'w', encoding='utf-8') as f:
-        f.write("Ablation Study Experiment Results\n")
-        f.write("=" * 60 + "\n")
-        f.write(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-        f.write(f"Server Charts: {len(server_pngs)}\n")
-        f.write(f"Network Charts: {len(network_pngs)}\n")
-        f.write("\nConfiguration:\n")
-        f.write(f"  Server counts: {INCREMENTAL_COUNTS}\n")
-        f.write(f"  Network bandwidths: {BANDWIDTHS} Mbps\n")
-        f.write(f"  Server config: {HETEROGENEOUS_SERVER_CONFIG}\n")
-    
-    print(f"\n[OK] All combined charts generated in: {CURRENT_EXP_DIR}")
-    print(f"     - Server charts: {server_dest}/")
-    print(f"     - Network charts: {network_dest}/")
-    print(f"     - Combined server: combined_server_charts.png")
-    print(f"     - Combined network: combined_network_charts.png")
+    network_combined = 'figures/exp2/combined_network_charts.png'
+    combine_charts(network_fig_dir, network_combined, cols=2,
+                   pattern="network_*_chart.png")
+
+    print(f"\n[OK] Combined charts generated:")
+    print(f"     - Server:  {server_combined}")
+    print(f"     - Network: {network_combined}")
+
+
+def run_fixed_comparison():
+    """Run Experiment 1: fixed config comparison (4x Xeon_IceLake, 100 Mbps, all 12 models)."""
+    print("\n" + "=" * 60)
+    print("Running Experiment 1: Fixed Config Comparison")
+    print(f"  Config: {FIXED_COMPARISON_SERVERS}x {DEFAULT_SERVER_TYPE}, {FIXED_COMPARISON_BANDWIDTH} Mbps")
+    print("=" * 60)
+
+    os.makedirs(EXP1_COMPARISON_DIR, exist_ok=True)
+    csv_files = sorted(glob.glob(os.path.join(DATASETS_DIR, '*.csv')))
+
+    all_results = []
+
+    for csv_file in csv_files:
+        model_name = get_model_name(csv_file)
+        short_name = MODEL_NAME_MAP.get(model_name, model_name)
+
+        print(f"\n  Processing: {short_name}")
+
+        G, layers_map = ModelLoader.load_model_from_csv(csv_file)
+        servers = [Server(i, server_type=DEFAULT_SERVER_TYPE) for i in range(FIXED_COMPARISON_SERVERS)]
+
+        occ   = OCCAlgorithm(G, layers_map, servers, FIXED_COMPARISON_BANDWIDTH)
+        dina  = DINAAlgorithm(G, layers_map, servers, FIXED_COMPARISON_BANDWIDTH)
+        media = MEDIAAlgorithm(G, layers_map, servers, FIXED_COMPARISON_BANDWIDTH)
+        ours  = OursAlgorithm(G, layers_map, servers, FIXED_COMPARISON_BANDWIDTH)
+
+        row = {
+            'Model': short_name,
+            'OCC':   occ.schedule(occ.run()).latency,
+            'DINA':  dina.schedule(dina.run()).latency,
+            'MEDIA': media.schedule(media.run()).latency,
+            'Ours':  ours.schedule(ours.run()).latency,
+        }
+        all_results.append(row)
+        print(f"    OCC={row['OCC']:.1f}  DINA={row['DINA']:.1f}  "
+              f"MEDIA={row['MEDIA']:.1f}  Ours={row['Ours']:.1f} ms")
+
+    df = pd.DataFrame(all_results)
+    output_file = os.path.join(EXP1_COMPARISON_DIR, 'fixed_comparison_all_models.csv')
+    df.to_csv(output_file, index=False)
+    print(f"\n  [OK] Saved: {output_file}")
+    print("\n[OK] Experiment 1 completed!")
+    return df
+
+
+def create_comparison_bar_chart(df, output_dir):
+    """Create grouped bar chart for Experiment 1: all models vs all methods."""
+    import numpy as np
+
+    plt.style.use('seaborn-v0_8-whitegrid')
+
+    models = df['Model'].tolist()
+    methods = ['OCC', 'DINA', 'MEDIA', 'Ours']
+    colors   = {'OCC': '#E74C3C', 'DINA': '#3498DB', 'MEDIA': '#2ECC71', 'Ours': '#9B59B6'}
+    hatches  = {'OCC': '',        'DINA': '//',       'MEDIA': '\\\\',    'Ours': ''}
+
+    n_models  = len(models)
+    n_methods = len(methods)
+    x         = np.arange(n_models)
+    bar_width = 0.18
+    offsets   = np.linspace(-(n_methods - 1) / 2, (n_methods - 1) / 2, n_methods) * bar_width
+
+    fig, ax = plt.subplots(figsize=(max(14, n_models * 1.4), 7), dpi=150)
+
+    for i, method in enumerate(methods):
+        values = df[method].tolist()
+        ax.bar(x + offsets[i], values, bar_width * 0.92,
+               label=method, color=colors[method],
+               hatch=hatches[method], edgecolor='white', linewidth=0.5)
+
+    ax.set_xlabel('Model', fontsize=13, fontweight='bold')
+    ax.set_ylabel('Inference Latency (ms)', fontsize=13, fontweight='bold')
+    ax.set_title(
+        f'End-to-End Inference Latency: {FIXED_COMPARISON_SERVERS}×{DEFAULT_SERVER_TYPE}, '
+        f'{FIXED_COMPARISON_BANDWIDTH} Mbps',
+        fontsize=15, fontweight='bold', pad=15
+    )
+    ax.set_xticks(x)
+    ax.set_xticklabels(models, rotation=25, ha='right', fontsize=10)
+    ax.tick_params(axis='y', labelsize=11)
+    ax.legend(fontsize=12, frameon=True, fancybox=True, shadow=True, framealpha=0.95)
+    ax.grid(True, axis='y', linestyle='--', alpha=0.6)
+    ax.annotate('Lower is better', xy=(0.01, 0.98), xycoords='axes fraction',
+                fontsize=10, fontstyle='italic', color='gray', va='top')
+
+    plt.tight_layout()
+
+    output_png = os.path.join(output_dir, 'fixed_comparison_bar_chart.png')
+    output_pdf = os.path.join(output_dir, 'fixed_comparison_bar_chart.pdf')
+    plt.savefig(output_png, dpi=300, bbox_inches='tight', facecolor='white', edgecolor='none')
+    plt.savefig(output_pdf, bbox_inches='tight', facecolor='white', edgecolor='none')
+    plt.close()
+
+    print(f"  [OK] {output_png}")
+    print(f"  [OK] {output_pdf}")
+    return output_png, output_pdf
+
+
+def generate_comparison_charts():
+    """Generate Experiment 1 charts from saved CSV data."""
+    print("\n" + "=" * 60)
+    print("Generating Experiment 1 Charts")
+    print("=" * 60)
+
+    plot_dir = 'figures/exp1'
+    os.makedirs(plot_dir, exist_ok=True)
+
+    csv_file = os.path.join(EXP1_COMPARISON_DIR, 'fixed_comparison_all_models.csv')
+    if not os.path.exists(csv_file):
+        print(f"  [SKIP] Data not found: {csv_file}")
+        print("         Run run_fixed_comparison() first.")
+        return
+
+    df = pd.read_csv(csv_file)
+    create_comparison_bar_chart(df, plot_dir)
+    print("\n[OK] Experiment 1 charts generated!")
 
 
 def main():
@@ -557,34 +661,35 @@ def main():
     print("=" * 60)
     print("Distributed DNN Inference Simulation - Full Pipeline")
     print("=" * 60)
-    
-    # Ensure directories exist
+
+    # Ensure output directories exist
     ensure_dirs()
-    
-    # Create timestamped experiment folder (all data will be saved here)
-    exp_dir = create_experiment_folder()
-    
-    # Step 1: Run experiments (data saved to timestamped folder)
+
+    # Exp 1: Fixed config comparison (4x Xeon_IceLake, 100 Mbps)
+    run_fixed_comparison()
+
+    # Exp 3: Server count ablation (heterogeneous incremental)
     run_server_ablation()
+
+    # Exp 2: Network bandwidth ablation (homogeneous, variable BW)
     run_network_ablation()
-    
-    # Step 2: Generate individual charts (using data from timestamped folder)
+
+    # Generate charts
+    generate_comparison_charts()
     generate_server_charts()
     generate_network_charts()
-    
-    # Step 3: Generate combined charts
     generate_combined_charts()
-    
+
     print("\n" + "=" * 60)
     print("All experiments and charts completed successfully!")
     print("=" * 60)
-    print(f"\nExperiment results saved to: {exp_dir}")
-    print(f"  - Server data & charts: {os.path.join(exp_dir, 'server_charts')}/")
-    print(f"  - Network data & charts: {os.path.join(exp_dir, 'network_charts')}/")
-    print(f"  - Combined charts: combined_server_charts.png, combined_network_charts.png")
-    print(f"\nBackward compatibility copies:")
-    print(f"  - Server CSV: {SERVER_CHART_DIR}/server_*.csv")
-    print(f"  - Network CSV: {NETWORK_CHART_DIR}/network_*.csv")
+    print(f"\nResults:")
+    print(f"  Exp 1 data:    {EXP1_COMPARISON_DIR}/")
+    print(f"  Exp 2 data:    {NETWORK_CHART_DIR}/")
+    print(f"  Exp 3 data:    {SERVER_CHART_DIR}/")
+    print(f"  Exp 1 figures: figures/exp1/")
+    print(f"  Exp 2 figures: figures/exp2/")
+    print(f"  Exp 3 figures: figures/exp3/")
 
 
 if __name__ == "__main__":

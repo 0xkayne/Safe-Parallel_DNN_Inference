@@ -144,7 +144,7 @@ class MEDIAAlgorithm:
         else:
             vol_mb = vol / (1024 * 1024)
             # Use RTT for merge decision (conservative: always add RTT if crossing servers)
-            t_comm = network_latency(vol_mb, self.bandwidth_mbps * 8 * 1000) if vol > 0 else 0.0
+            t_comm = network_latency(vol_mb, self.bandwidth_mbps) if vol > 0 else 0.0
             
         # 3. Calculate paging overhead for separate partitions (sequential)
         def paging_cost(p):
@@ -199,6 +199,43 @@ class MEDIAAlgorithm:
                         for l in new_layers:
                             self.node_to_partition[l.id] = pu_new
         
+        # Post-processing: force-merge adjacent partitions that fit in EPC
+        # This fixes over-partitioning for small models (total memory < EPC)
+        # where edge selection constraints left too many tiny partitions.
+        changed = True
+        while changed:
+            changed = False
+            unique_parts = list(set(self.node_to_partition.values()))
+            for i, p1 in enumerate(unique_parts):
+                if changed:
+                    break
+                for j, p2 in enumerate(unique_parts):
+                    if i >= j or p1 is p2:
+                        continue
+                    # Check adjacency in the original graph
+                    adjacent = False
+                    for l1 in p1.layers:
+                        for l2 in p2.layers:
+                            if self.G.has_edge(l1.id, l2.id) or self.G.has_edge(l2.id, l1.id):
+                                adjacent = True
+                                break
+                        if adjacent:
+                            break
+                    if not adjacent:
+                        continue
+                    # Check combined memory fits in EPC
+                    temp_layers = list(set(p1.layers + p2.layers))
+                    temp_part = Partition(-1, temp_layers, self.G)
+                    if temp_part.total_memory > EPC_EFFECTIVE_MB:
+                        continue
+                    # Check no cycle
+                    if not self._would_cause_cycle(p1, p2):
+                        new_part = Partition(p1.id, temp_layers, self.G)
+                        for l in temp_layers:
+                            self.node_to_partition[l.id] = new_part
+                        changed = True
+                        break
+
         # Finalize unique partitions
         unique_parts = list(set(self.node_to_partition.values()))
         # Re-assign IDs
@@ -249,7 +286,7 @@ class MEDIAAlgorithm:
                         # Network communication needed
                         comm_data = sum(self.G[l1.id][l2.id]['weight'] for l1 in partitions_list[pred_id].layers for l2 in p.layers if self.G.has_edge(l1.id, l2.id))
                         comm_data_mb = comm_data / (1024 * 1024)
-                        comm_time = network_latency(comm_data_mb, self.bandwidth_mbps * 8 * 1000)
+                        comm_time = network_latency(comm_data_mb, self.bandwidth_mbps)
                         arrival = pred_ft + comm_time
                         dependency_ready = max(dependency_ready, arrival)
                     else:

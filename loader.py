@@ -123,10 +123,10 @@ class ModelLoader:
                     mem_mb = mem_bytes / (1024 * 1024)
                     
                     # Granular Memory Components (for dynamic peak memory calculation)
-                    weight_bytes = float(get_val(row, ['weight_bytes'], 0))
-                    bias_bytes = float(get_val(row, ['bias_bytes'], 0))
-                    activation_bytes = float(get_val(row, ['activation_bytes'], 0))
-                    encryption_bytes = float(get_val(row, ['tee_encryption_overhead'], 0))
+                    weight_bytes = float(get_val(row, ['weight_bytes', 'Weight_Bytes'], 0))
+                    bias_bytes = float(get_val(row, ['bias_bytes', 'Bias_Bytes'], 0))
+                    activation_bytes = float(get_val(row, ['activation_bytes', 'Activation_Bytes'], 0))
+                    encryption_bytes = float(get_val(row, ['tee_encryption_overhead', 'TEE_Encryption_Overhead'], 0))
                     
                     weight_mb = weight_bytes / (1024 * 1024)
                     bias_mb = bias_bytes / (1024 * 1024)

@@ -56,10 +56,14 @@ class OursAlgorithm:
         G_aug, layers_aug = self._augment_graph(optimal_cfg)
         print(f"[HPA] Augmented graph: {len(layers_aug)} nodes (from {len(self.layers_map)})")
         
+        # Save augmented graph for use in schedule()
+        self.G_aug = G_aug
+        self.layers_aug = layers_aug
+
         # Stage 4: MEDIA-style Partitioning on augmented graph
         partitions = self._media_partition(G_aug, layers_aug)
         print(f"[HPA] Generated {len(partitions)} partitions")
-        
+
         return partitions
     
     def _filter_candidates_by_cost_benefit(self) -> Set[int]:
@@ -315,6 +319,38 @@ class OursAlgorithm:
                             self.node_to_partition[l.id] = pu_new
                         merge_count += 1
         
+        # Post-processing: force-merge adjacent partitions that fit in EPC
+        changed = True
+        while changed:
+            changed = False
+            unique_parts = list(set(self.node_to_partition.values()))
+            for i, p1 in enumerate(unique_parts):
+                if changed:
+                    break
+                for j, p2 in enumerate(unique_parts):
+                    if i >= j or p1 is p2:
+                        continue
+                    adjacent = False
+                    for l1 in p1.layers:
+                        for l2 in p2.layers:
+                            if G.has_edge(l1.id, l2.id) or G.has_edge(l2.id, l1.id):
+                                adjacent = True
+                                break
+                        if adjacent:
+                            break
+                    if not adjacent:
+                        continue
+                    temp_layers = list(set(p1.layers + p2.layers))
+                    temp_part = Partition(-1, temp_layers, G)
+                    if temp_part.total_memory > EPC_EFFECTIVE_MB:
+                        continue
+                    if not self._would_cause_cycle(p1, p2, G):
+                        new_part = Partition(p1.id, temp_layers, G)
+                        for l in temp_layers:
+                            self.node_to_partition[l.id] = new_part
+                        changed = True
+                        break
+
         # Finalize unique partitions
         unique_parts = list(set(self.node_to_partition.values()))
         for i, p in enumerate(unique_parts):
@@ -406,7 +442,7 @@ class OursAlgorithm:
             t_comm = 0.0
         else:
             vol_mb = vol / (1024 * 1024)
-            t_comm = network_latency(vol_mb, self.bandwidth_mbps * 8 * 1000) if vol > 0 else 0.0
+            t_comm = network_latency(vol_mb, self.bandwidth_mbps) if vol > 0 else 0.0
         
         # Paging costs
         def paging_cost(p):
@@ -439,7 +475,7 @@ class OursAlgorithm:
         for p in partitions:
             partition_graph.add_node(p.id)
         
-        for u, v in self.G.edges():
+        for u, v in self.G_aug.edges():
             pu = self.node_to_partition[u]
             pv = self.node_to_partition[v]
             if pu.id != pv.id:
@@ -486,12 +522,12 @@ class OursAlgorithm:
                     
                     if pred_s.id != s.id:
                         # Network communication
-                        comm_data = sum(self.G[l1.id][l2.id]['weight'] 
-                                      for l1 in partitions_list[pred_id].layers 
-                                      for l2 in p.layers 
-                                      if self.G.has_edge(l1.id, l2.id))
+                        comm_data = sum(self.G_aug[l1.id][l2.id]['weight']
+                                      for l1 in partitions_list[pred_id].layers
+                                      for l2 in p.layers
+                                      if self.G_aug.has_edge(l1.id, l2.id))
                         comm_data_mb = comm_data / (1024 * 1024)
-                        comm_time = network_latency(comm_data_mb, self.bandwidth_mbps * 8 * 1000)
+                        comm_time = network_latency(comm_data_mb, self.bandwidth_mbps)
                         arrival = pred_ft + comm_time
                         dependency_ready = max(dependency_ready, arrival)
                     else:
@@ -540,11 +576,11 @@ class OursAlgorithm:
             if successors:
                 max_succ_priority = max(priorities.get(sid, 0.0) for sid in successors)
             
-            comm_data = sum(self.G[l1.id][l2.id]['weight'] 
-                          for sid in successors 
-                          for l1 in partition.layers 
-                          for l2 in partitions_list[sid].layers 
-                          if self.G.has_edge(l1.id, l2.id))
+            comm_data = sum(self.G_aug[l1.id][l2.id]['weight']
+                          for sid in successors
+                          for l1 in partition.layers
+                          for l2 in partitions_list[sid].layers
+                          if self.G_aug.has_edge(l1.id, l2.id))
             
             priorities[pid] = t_exec + comm_data / self.bandwidth_per_ms + max_succ_priority
         
