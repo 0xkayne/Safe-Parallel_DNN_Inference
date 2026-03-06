@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/Scripts/python.exe:*)",
+      "Bash(..venvScriptspython.exe:*)",
+      "Bash(python:*)",
+      "Skill(pyzotero)"
+    ]
+  }
+}

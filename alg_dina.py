@@ -81,7 +81,7 @@ class DINAAlgorithm:
                         for v in p.layers:
                             if self.G.has_edge(u.id, v.id):
                                 vol += self.G[u.id][v.id]['weight']
-                    vol_mb = vol / (1024 * 1024)  # Convert bytes to MB
+                    vol_mb = vol  # edge weights stored in MB by loader.py
                     comm = network_latency(vol_mb, self.bandwidth_mbps, is_first_hop=(i == 1))
                 
                 start_loading = max(server_free_time[s.id], prev_end + comm)

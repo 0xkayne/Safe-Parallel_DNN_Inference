@@ -143,3 +143,18 @@ figures/
 - **InceptionV3** is the only model with significant parallel branch structure — it's the key model for demonstrating Ours(HPA) advantage.
 - **Linear models** (BERT/ViT): MEDIA ≈ Ours is expected behavior (no parallel structure to exploit).
 - **`archive/`** contains legacy algorithm implementations and old scripts — not used in current experiments.
+
+## Lab Notebook Protocol
+
+  After any exchange involving substantial findings, proactively evaluate
+  whether the information should be recorded to `lab-notebook/`. Record if
+  the exchange produced:
+  - New experimental data or benchmark results
+  - Root cause analysis of a bug or unexpected behavior
+  - Algorithm design decisions with technical rationale
+  - Insights usable in the paper or patent (tag as 素材)
+
+  When recording, use the appropriate phase notes.md file and update
+  material-index.md if paper/patent material was identified.
+  Do NOT record: simple explanations, trivial code questions, or anything
+  already captured in existing notes.

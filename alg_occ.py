@@ -1,33 +1,31 @@
-import math
 import networkx as nx
 from common import (Partition, EPC_EFFECTIVE_MB, calculate_penalty, ScheduleResult,
                     enclave_init_cost, ENABLE_ENCLAVE_INIT)
 
 class OCCAlgorithm:
     """
-    OCC: Single-server Oblivious Context-switch Computation.
-    Runs entire model on ONE server via multi-partition paging.
+    OCC: Occlumency-style single-server inference.
+    Weights stored in UNPROTECTED memory, loaded on-demand via OCALL (DDR memcpy ~10 GB/s).
+    EPC contains only activations + ring buffer — no EPC paging for weights.
+    Three-thread pipeline: loading + hash-checking + inference run in parallel.
     """
-    
-    # SGX Paging Parameters (calibrated to realistic values)
-    DEFAULT_PAGING_BW_MBPS = 1000
-    PAGE_SIZE_KB = 4
-    PAGE_FAULT_OVERHEAD_MS = 0.03
-    ENCLAVE_ENTRY_EXIT_OVERHEAD_MS = 0.005
+
+    # DDR memcpy bandwidth for weight loading via OCALL (conservative 10 GB/s)
+    WEIGHT_COPY_BW_MB_PER_MS = 10.0
+    # EPC ring buffer overhead for weight staging (fixed per partition)
+    RING_BUFFER_EPC_MB = 20.0
     
     def __init__(self, G, layers_map, servers, bandwidth_mbps):
         self.G = G
         self.layers_map = layers_map
         self.servers = servers
         self.bandwidth_mbps = bandwidth_mbps
-        self.paging_bw_per_ms = self.DEFAULT_PAGING_BW_MBPS / 1000.0
     
     def run(self):
         topo_order = list(nx.topological_sort(self.G))
         partitions = []
         current_layers = []
-        current_mem = 0.0
-        
+
         for node_id in topo_order:
             layer = self.layers_map[node_id]
             
@@ -69,24 +67,26 @@ class OCCAlgorithm:
         
         server_schedule = {s.id: [] for s in self.servers}
 
-        for i, part in enumerate(partitions):
-            # Universal SGX Paging Model: Every partition must be loaded (Cold Start / Context Switch)
-            # CRITICAL FIX: Only load Weight + Bias (Static Data). Activations are generated runtime.
-            swap_bytes_mb = part.get_static_memory()
-            num_pages = int(math.ceil(swap_bytes_mb * 1024 / self.PAGE_SIZE_KB))
-            paging_overhead = (num_pages * self.PAGE_FAULT_OVERHEAD_MS + swap_bytes_mb / self.paging_bw_per_ms)
-            current_time += paging_overhead
+        for part in partitions:
+            # OCC: weights in UNPROTECTED memory, loaded via OCALL (fast DDR memcpy, no EPC paging)
+            weight_mb = part.get_static_memory()
+            weight_load_time = weight_mb / self.WEIGHT_COPY_BW_MB_PER_MS
+
+            # EPC holds only activations + ring buffer for weight staging (NOT the weights themselves)
+            activation_peak_mb = part.total_memory - part.get_static_memory()
+            epc_usage_mb = activation_peak_mb + self.RING_BUFFER_EPC_MB
+            penalty = calculate_penalty(epc_usage_mb)
+
+            exec_time = (part.total_workload * penalty) / max_power_ratio
+
+            # Three-thread pipeline: weight loading overlaps with inference
+            effective_time = max(exec_time, weight_load_time)
 
             start_t = current_time
-            current_time += self.ENCLAVE_ENTRY_EXIT_OVERHEAD_MS
-            penalty = calculate_penalty(part.total_memory)
-            exec_time = (part.total_workload * penalty) / max_power_ratio
-            current_time += exec_time
-            finish_t = current_time
-            
+            current_time += effective_time
             server_schedule[s_id].append({
                 'start': start_t,
-                'end': finish_t,
+                'end': current_time,
                 'partition_id': part.id,
                 'partition': part
             })

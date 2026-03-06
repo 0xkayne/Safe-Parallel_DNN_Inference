@@ -1,8 +1,6 @@
 import networkx as nx
-import math
-from common import (Partition, EPC_EFFECTIVE_MB, calculate_penalty, PAGE_SIZE_KB,
-                    PAGE_FAULT_OVERHEAD_MS, ENCLAVE_ENTRY_EXIT_OVERHEAD_MS,
-                    DEFAULT_PAGING_BW_MBPS, ScheduleResult, network_latency)
+from common import (Partition, EPC_EFFECTIVE_MB, calculate_penalty,
+                    ScheduleResult, network_latency)
 
 class MEDIAAlgorithm:
     def __init__(self, G, layers_map, servers, bandwidth_mbps):
@@ -36,18 +34,14 @@ class MEDIAAlgorithm:
         for u in nx.topological_sort(self.G):
             # Traverse all successors of node u (i.e., edges (u,v) ∈ E)
             for v in self.G.successors(u):
-                # Constraint 1: Only consider edges where "u has out-degree=1 OR v has in-degree=1"
-                # (corresponding to Algorithm 1 line 3 in the paper)
-                # For single-server scenarios, this constraint is relaxed
-                if len(self.servers) > 1:
-                    # Multi-server: require at least one endpoint with degree 1
-                    if not (self.G.out_degree(u) == 1 or self.G.in_degree(v) == 1):
-                        continue
-                else:
-                    # Single-server: use the looser constraint from MEDIA.py
-                    # Only skip if BOTH have degree != 1
-                    if self.G.in_degree(v) != 1 and self.G.out_degree(u) != 1:
-                        continue
+                # Constraint 1 (stricter form): only merge into nodes with a single predecessor.
+                # Paper allows out_degree(u)==1 OR in_degree(v)==1, but merging into join/concat
+                # nodes (in_degree(v)>1) via the out_degree(u)==1 case serialises parallel
+                # branches: the concat ends up inside one branch's partition, forcing all other
+                # branches to depend on it sequentially.  Requiring in_degree(v)==1 keeps
+                # join nodes as separate partitions so branches can be scheduled in parallel.
+                if self.G.in_degree(v) != 1:
+                    continue
                 
                 # Tentatively add the candidate edge, then check constraint 2
                 M.add((u, v))
@@ -123,46 +117,33 @@ class MEDIAAlgorithm:
             return True
             
         # Case B: Memory exceeds EPC.
-        # We calculate the execution time with the penalty factor.
-        # Note: DINA/OCC discard this case immediately. MEDIA evaluates the trade-off.
-        
+        # MEDIA paper Check() function: T(merged) <= T(P1) + T(P1,P2) + T(P2)
+        # T(P) = w(P) / F_n(m(P)) — paging penalty is a compute multiplier only (no separate loading time)
+
         avg_power = sum(s.power_ratio for s in self.servers) / len(self.servers)
-        
-        # 1. Calculate split execution time (including existing penalties if any)
+
+        # Execution time (with paging penalty multiplier via calculate_penalty)
         t_p1 = (part1.total_workload * calculate_penalty(part1.total_memory)) / avg_power
         t_p2 = (part2.total_workload * calculate_penalty(part2.total_memory)) / avg_power
-        
-        # 2. Calculate communication time if separate
+
+        # Communication time if kept separate
         vol = 0.0
         for l1 in part1.layers:
             for l2 in part2.layers:
                 if self.G.has_edge(l1.id, l2.id): vol += self.G[l1.id][l2.id]['weight']
                 if self.G.has_edge(l2.id, l1.id): vol += self.G[l2.id][l1.id]['weight']
-        
+
         if len(self.servers) == 1:
             t_comm = 0.0
         else:
-            vol_mb = vol / (1024 * 1024)
-            # Use RTT for merge decision (conservative: always add RTT if crossing servers)
-            t_comm = network_latency(vol_mb, self.bandwidth_mbps) if vol > 0 else 0.0
-            
-        # 3. Calculate paging overhead for separate partitions (sequential)
-        def paging_cost(p):
-            swap_mb = p.get_static_memory()
-            num_pages = math.ceil(swap_mb * 1024 / PAGE_SIZE_KB)
-            return (num_pages * PAGE_FAULT_OVERHEAD_MS + 
-                    swap_mb / (DEFAULT_PAGING_BW_MBPS / 1000.0) + 
-                    ENCLAVE_ENTRY_EXIT_OVERHEAD_MS)
-        
-        t_paging = paging_cost(part1) + paging_cost(part2)
-        
-        # 4. Calculate merged execution time
+            t_comm = network_latency(vol, self.bandwidth_mbps) if vol > 0 else 0.0
+
+        # Merged execution time
         merged_workload = part1.total_workload + part2.total_workload
         t_merged = (merged_workload * calculate_penalty(merged_mem)) / avg_power
-        t_paging_merged = paging_cost(temp_part)
-        
-        # Merge if merged cost is lower or equal
-        return (t_merged + t_paging_merged) <= (t_p1 + t_p2 + t_comm + t_paging)
+
+        # Merge if merged cost is lower or equal (paper's Check() condition)
+        return t_merged <= (t_p1 + t_p2 + t_comm)
     
     def run(self):
         """
@@ -199,43 +180,6 @@ class MEDIAAlgorithm:
                         for l in new_layers:
                             self.node_to_partition[l.id] = pu_new
         
-        # Post-processing: force-merge adjacent partitions that fit in EPC
-        # This fixes over-partitioning for small models (total memory < EPC)
-        # where edge selection constraints left too many tiny partitions.
-        changed = True
-        while changed:
-            changed = False
-            unique_parts = list(set(self.node_to_partition.values()))
-            for i, p1 in enumerate(unique_parts):
-                if changed:
-                    break
-                for j, p2 in enumerate(unique_parts):
-                    if i >= j or p1 is p2:
-                        continue
-                    # Check adjacency in the original graph
-                    adjacent = False
-                    for l1 in p1.layers:
-                        for l2 in p2.layers:
-                            if self.G.has_edge(l1.id, l2.id) or self.G.has_edge(l2.id, l1.id):
-                                adjacent = True
-                                break
-                        if adjacent:
-                            break
-                    if not adjacent:
-                        continue
-                    # Check combined memory fits in EPC
-                    temp_layers = list(set(p1.layers + p2.layers))
-                    temp_part = Partition(-1, temp_layers, self.G)
-                    if temp_part.total_memory > EPC_EFFECTIVE_MB:
-                        continue
-                    # Check no cycle
-                    if not self._would_cause_cycle(p1, p2):
-                        new_part = Partition(p1.id, temp_layers, self.G)
-                        for l in temp_layers:
-                            self.node_to_partition[l.id] = new_part
-                        changed = True
-                        break
-
         # Finalize unique partitions
         unique_parts = list(set(self.node_to_partition.values()))
         # Re-assign IDs
@@ -265,66 +209,32 @@ class MEDIAAlgorithm:
         
         for p in sorted_partitions:
             best_s, best_ft = None, float('inf')
-            best_s, best_ft = None, float('inf')
-            
-            # Universal Paging Cost for Partition P (Loading Static Weights)
-            swap_mb = p.get_static_memory()
-            num_pages = math.ceil(swap_mb * 1024 / PAGE_SIZE_KB)
-            paging_cost = (num_pages * PAGE_FAULT_OVERHEAD_MS + 
-                           swap_mb / (DEFAULT_PAGING_BW_MBPS / 1000.0) + 
-                           ENCLAVE_ENTRY_EXIT_OVERHEAD_MS)
 
             for s in self.servers:
                 dependency_ready = 0.0
-                
-                # Check dependencies
+
                 for pred_id in partition_graph.predecessors(p.id):
                     if pred_id not in assignment: continue
                     pred_s, pred_ft = assignment[pred_id], finish[pred_id]
-                    
+
                     if pred_s.id != s.id:
-                        # Network communication needed
                         comm_data = sum(self.G[l1.id][l2.id]['weight'] for l1 in partitions_list[pred_id].layers for l2 in p.layers if self.G.has_edge(l1.id, l2.id))
-                        comm_data_mb = comm_data / (1024 * 1024)
-                        comm_time = network_latency(comm_data_mb, self.bandwidth_mbps)
-                        arrival = pred_ft + comm_time
-                        dependency_ready = max(dependency_ready, arrival)
+                        comm_time = network_latency(comm_data, self.bandwidth_mbps)
+                        dependency_ready = max(dependency_ready, pred_ft + comm_time)
                     else:
-                        # Local dependency, data ready immediately when pred finishes
-                        # (We removed the conditional local swapping here, as we apply universal swapping below)
                         dependency_ready = max(dependency_ready, pred_ft)
-                
-                # Scheduling:
-                # 1. We can start loading when Server is free AND Data is ready (dependencies met)
-                #    Actually, ensuring data is ready before loading is safer.
-                # 2. Loading consumes Server CPU (ELDU).
-                
-                start_loading = max(server_free_time[s.id], dependency_ready)
-                start_exec = start_loading + paging_cost
-                
+
+                # T(P) = w(P) / F_n(m(P)) — paper's cost model, no separate loading time
+                # Paging penalty for oversized partitions is captured in calculate_penalty()
+                start_t = max(server_free_time[s.id], dependency_ready)
                 exec_t = (p.total_workload * calculate_penalty(p.total_memory)) / s.power_ratio
-                ft = start_exec + exec_t
-                
+                ft = start_t + exec_t
+
                 if ft < best_ft: best_ft, best_s, final_exec_t = ft, s, exec_t
-            
+
             assignment[p.id], finish[p.id] = best_s, best_ft
             server_free_time[best_s.id] = best_ft
-            # Log the event. Visualizer expects 'start' to be execution start? 
-            # Or should it include loading? 
-            # Usually "Latency" includes everything. 
-            # Let's log the whole block [Start_Load -> Finish_Exec] as the partition event for simplicity,
-            # or we can verify how other algos do it. 
-            # DINA/OCC: data_ready includes paging. start_t = max(free, data_ready). 
-            # So they effectively model "Paging happens BEFORE start_t" (hidden latency) OR "Paging pushes start_t back".
-            # Wait, DINA: `data_ready = prev + paging`. `start = max(free, data_ready)`.
-            # If free >> data_ready, Paging is hidden? No.
-            # If free < data_ready, Start is delayed by Paging. 
-            # This implies Paging happens in parallel or is just a delay?
-            # Correct model: Paging consumes CPU.
-            # My new logic `start_exec = max(free, ready) + paging` explicitly consumes CPU.
             server_schedule[best_s.id].append({'start': best_ft - final_exec_t, 'end': best_ft, 'partition_id': p.id, 'partition': p})
-            # Note: The above append only highlights EXECUTION time. The "Gap" before it is Paging.
-            # This matches the Breakdown script logic (Gap = Paging).
             
         return ScheduleResult("MEDIA", max(finish.values()), server_schedule, partitions)
 

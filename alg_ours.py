@@ -18,8 +18,6 @@ from copy import deepcopy
 from common import (
     Partition, EPC_EFFECTIVE_MB, calculate_penalty,
     network_latency, ScheduleResult, hpa_cost, DNNLayer,
-    PAGE_SIZE_KB, PAGE_FAULT_OVERHEAD_MS, 
-    ENCLAVE_ENTRY_EXIT_OVERHEAD_MS, DEFAULT_PAGING_BW_MBPS
 )
 
 
@@ -224,24 +222,48 @@ class OursAlgorithm:
         return network_latency(reshard_mb, self.bandwidth_mbps)
     
     def _augment_graph(self, optimal_cfg: Dict[int, int]) -> Tuple[nx.DiGraph, Dict[int, DNNLayer]]:
-        """Stage 3: Augment graph by splitting nodes according to optimal config."""
+        """Stage 3: Augment graph by splitting nodes and adding explicit AllReduce barriers.
+
+        For each k>1 operator, inserts a zero-workload AllReduce barrier node between the
+        k shards and all downstream nodes:
+
+            shard_0 ─┐
+            shard_1 ─┼─► AllReduce ──► successor(s)
+              ...    ─┘
+
+        This lets the HEFT scheduler correctly account for cross-server synchronization
+        cost when shards land on different servers.  Without explicit barrier nodes the
+        scheduler would see no edge between shard_i and the successor and would
+        under-estimate (or ignore) AllReduce latency, causing catastrophically wrong
+        decisions at low bandwidth.
+
+        Edge-weight convention (all in MB, matching loader.py):
+          shard_i → AllReduce : (Ring-AllReduce volume per shard) × P_sync
+                              = output_bytes × 2(k-1)/k × P_sync / k  / 1024²
+          AllReduce → successor: original DAG edge weight (unchanged)
+        """
         G_aug = nx.DiGraph()
         layers_aug = {}
         node_id_counter = 0
-        
+
         # Map: original node -> list of shard node IDs
         node_to_shards = {}
-        
-        # Phase 3.1: Node Replacement
+        # Map: original node -> AllReduce barrier node ID  (only for k > 1)
+        node_to_allreduce = {}
+
+        # Must match the sync_probability default in hpa_cost() so that the cost
+        # seen by HEFT is consistent with what the DP used for its k selection.
+        SYNC_PROBABILITY = 0.5
+
+        # ── Phase 3.1: Node Replacement + AllReduce Barrier Creation ─────────────
         for orig_node, k in optimal_cfg.items():
             orig_layer = self.layers_map[orig_node]
             shards = []
-            
+
             for i in range(k):
                 new_id = node_id_counter
                 node_id_counter += 1
-                
-                # Create shard layer
+
                 shard_layer = DNNLayer(
                     layer_id=new_id,
                     name=f"{orig_layer.name}_shard_{i}",
@@ -250,37 +272,82 @@ class OursAlgorithm:
                     enclave_time=orig_layer.enclave_time / k,
                     output_bytes=orig_layer.output_bytes / k,
                     execution_mode=orig_layer.execution_mode,
-                    weight_memory=(orig_layer.weight_memory) / k,
-                    bias_memory=(orig_layer.bias_memory) / k,
+                    weight_memory=orig_layer.weight_memory / k,
+                    bias_memory=orig_layer.bias_memory / k,
                     activation_memory=orig_layer.activation_memory,
                     encryption_overhead=orig_layer.encryption_overhead / k
                 )
-                
                 layers_aug[new_id] = shard_layer
                 G_aug.add_node(new_id, layer=shard_layer)
                 shards.append(new_id)
-            
+
             node_to_shards[orig_node] = shards
-        
-        # Phase 3.2: Edge Rewiring
+
+            # ── AllReduce barrier (only when actual tensor-parallelism is used) ──
+            if k > 1:
+                ar_id = node_id_counter
+                node_id_counter += 1
+
+                # Ring AllReduce: each shard sends 2*(k-1)/k * output_bytes in total.
+                # Scale by P_sync (amortised across TP groups) and split evenly across
+                # k shards so each shard → barrier edge carries its fair share.
+                sync_bytes = orig_layer.output_bytes * 2 * (k - 1) / k
+                sync_mb    = sync_bytes / (1024 * 1024)
+                per_shard_sync_mb = (sync_mb * SYNC_PROBABILITY) / k
+
+                ar_layer = DNNLayer(
+                    layer_id=ar_id,
+                    name=f"{orig_layer.name}_allreduce",
+                    # Zero compute / memory – the barrier itself does no SGX work.
+                    memory=0.0,
+                    cpu_time=0.0,
+                    enclave_time=0.0,
+                    # Carry the full output so downstream comm-weight lookups are correct.
+                    output_bytes=orig_layer.output_bytes,
+                    execution_mode=orig_layer.execution_mode,
+                    weight_memory=0.0,
+                    bias_memory=0.0,
+                    activation_memory=0.0,
+                    encryption_overhead=0.0,
+                )
+                layers_aug[ar_id] = ar_layer
+                G_aug.add_node(ar_id, layer=ar_layer)
+                node_to_allreduce[orig_node] = ar_id
+
+                # Connect every shard to the barrier
+                for shard_id in shards:
+                    G_aug.add_edge(shard_id, ar_id, weight=per_shard_sync_mb)
+
+        ar_count = len(node_to_allreduce)
+        if ar_count:
+            print(f"  [HPA] Added {ar_count} AllReduce barriers for k>1 operators")
+
+        # ── Phase 3.2: Edge Rewiring ──────────────────────────────────────────────
+        # For k_u > 1: downstream edges now originate from the AllReduce barrier.
+        # For k_u == 1: downstream edges originate from the single shard (unchanged).
         for u, v in self.G.edges():
-            k_u = optimal_cfg[u]
-            k_v = optimal_cfg[v]
-            u_shards = node_to_shards[u]
+            k_u    = optimal_cfg[u]
+            k_v    = optimal_cfg[v]
             v_shards = node_to_shards[v]
-            
             weight = self.G[u][v].get('weight', 0)
-            
-            if k_u == k_v:
-                # 1:1 or k:k mapping (no resharding)
-                for i in range(k_u):
-                    G_aug.add_edge(u_shards[i], v_shards[i], weight=weight / k_u)
-            else:
-                # Resharding needed: all-to-all connections
-                for u_shard in u_shards:
+
+            if k_u > 1:
+                # Source is the AllReduce barrier; shards already wired into it above.
+                ar_u = node_to_allreduce[u]
+                if k_v == 1:
+                    G_aug.add_edge(ar_u, v_shards[0], weight=weight)
+                else:
                     for v_shard in v_shards:
-                        G_aug.add_edge(u_shard, v_shard, weight=weight / (k_u * k_v))
-        
+                        G_aug.add_edge(ar_u, v_shard, weight=weight / k_v)
+            else:
+                # k_u == 1: single shard fans out to v_shards
+                u_shard = node_to_shards[u][0]
+                if k_v == 1:
+                    G_aug.add_edge(u_shard, v_shards[0], weight=weight)
+                else:
+                    for v_shard in v_shards:
+                        G_aug.add_edge(u_shard, v_shard, weight=weight / k_v)
+
         return G_aug, layers_aug
     
     def _media_partition(self, G: nx.DiGraph, layers_map: Dict[int, DNNLayer]) -> List[Partition]:
@@ -311,8 +378,8 @@ class OursAlgorithm:
                 if not self._would_cause_cycle(pu, pv, G):
                     # Merge check based on MEDIA cost model
                     if self._merge_check(pu, pv, G):
-                        # Merge pv into pu
-                        new_layers = list(set(pu.layers + pv.layers))
+                        # Merge pv into pu (sort by layer id for determinism)
+                        new_layers = sorted({l.id: l for l in pu.layers + pv.layers}.values(), key=lambda l: l.id)
                         pu_new = Partition(pu.id, new_layers, G)
                         # Bulk update node map
                         for l in new_layers:
@@ -320,39 +387,60 @@ class OursAlgorithm:
                         merge_count += 1
         
         # Post-processing: force-merge adjacent partitions that fit in EPC
+        def _unique_parts(node_to_partition):
+            seen = {}
+            for p in node_to_partition.values():
+                if id(p) not in seen:
+                    seen[id(p)] = p
+            return list(seen.values())
+
+        # Post-processing: greedily merge adjacent partitions by inter-partition
+        # communication weight (heaviest first), same strategy as Phase 1.
+        # This is deterministic and avoids the cycle-detection thrashing that
+        # occurs when merging in topological order.
         changed = True
         while changed:
             changed = False
-            unique_parts = list(set(self.node_to_partition.values()))
+            unique_parts = _unique_parts(self.node_to_partition)
+
+            # Build candidate list: (comm_weight, p1, p2, temp_layers)
+            candidates = []
             for i, p1 in enumerate(unique_parts):
-                if changed:
-                    break
                 for j, p2 in enumerate(unique_parts):
-                    if i >= j or p1 is p2:
+                    if j <= i:
                         continue
-                    adjacent = False
-                    for l1 in p1.layers:
-                        for l2 in p2.layers:
-                            if G.has_edge(l1.id, l2.id) or G.has_edge(l2.id, l1.id):
-                                adjacent = True
-                                break
-                        if adjacent:
-                            break
-                    if not adjacent:
+                    comm = sum(G[l1.id][l2.id]['weight']
+                               for l1 in p1.layers for l2 in p2.layers
+                               if G.has_edge(l1.id, l2.id))
+                    comm += sum(G[l2.id][l1.id]['weight']
+                                for l1 in p1.layers for l2 in p2.layers
+                                if G.has_edge(l2.id, l1.id))
+                    if comm == 0:
                         continue
-                    temp_layers = list(set(p1.layers + p2.layers))
+                    temp_layers = sorted({l.id: l for l in p1.layers + p2.layers}.values(),
+                                         key=lambda l: l.id)
                     temp_part = Partition(-1, temp_layers, G)
                     if temp_part.total_memory > EPC_EFFECTIVE_MB:
                         continue
-                    if not self._would_cause_cycle(p1, p2, G):
-                        new_part = Partition(p1.id, temp_layers, G)
-                        for l in temp_layers:
-                            self.node_to_partition[l.id] = new_part
-                        changed = True
-                        break
+                    candidates.append((comm, p1, p2, temp_layers))
+
+            # Try from highest communication first
+            candidates.sort(key=lambda x: -x[0])
+            for comm, p1, p2, temp_layers in candidates:
+                # Skip stale pairs (p1 or p2 already merged into another partition)
+                if self.node_to_partition.get(p1.layers[0].id) is not p1:
+                    continue
+                if self.node_to_partition.get(p2.layers[0].id) is not p2:
+                    continue
+                if not self._would_cause_cycle(p1, p2, G):
+                    new_part = Partition(p1.id, temp_layers, G)
+                    for l in temp_layers:
+                        self.node_to_partition[l.id] = new_part
+                    changed = True
+                    break
 
         # Finalize unique partitions
-        unique_parts = list(set(self.node_to_partition.values()))
+        unique_parts = _unique_parts(self.node_to_partition)
         for i, p in enumerate(unique_parts):
             p.id = i
         
@@ -441,7 +529,7 @@ class OursAlgorithm:
         if len(self.servers) == 1:
             t_comm = 0.0
         else:
-            vol_mb = vol / (1024 * 1024)
+            vol_mb = vol  # edge weights stored in MB by loader.py
             t_comm = network_latency(vol_mb, self.bandwidth_mbps) if vol > 0 else 0.0
         
         # Paging costs
@@ -501,60 +589,97 @@ class OursAlgorithm:
         server_schedule = {s.id: [] for s in self.servers}
         assignment, finish = {}, {}
         
+        # DDR loading constants (matching OCC model)
+        WEIGHT_COPY_BW_MB_PER_MS = 10.0
+        RING_BUFFER_EPC_MB = 20.0
+
         for p in sorted_partitions:
-            best_s, best_ft = None, float('inf')
-            
-            # Paging cost
-            swap_mb = p.get_static_memory()
-            num_pages = math.ceil(swap_mb * 1024 / PAGE_SIZE_KB)
-            paging_cost = (num_pages * PAGE_FAULT_OVERHEAD_MS +
-                          swap_mb / (DEFAULT_PAGING_BW_MBPS / 1000.0) +
-                          ENCLAVE_ENTRY_EXIT_OVERHEAD_MS)
-            
+            best_s, best_ft, best_effective_t = None, float('inf'), 0.0
+
+            # Partition-level DDR loading cost (independent of server)
+            weight_mb = p.get_static_memory()
+            weight_load_time = weight_mb / WEIGHT_COPY_BW_MB_PER_MS
+            activation_peak_mb = p.total_memory - p.get_static_memory()
+            epc_usage_mb = activation_peak_mb + RING_BUFFER_EPC_MB
+            penalty = calculate_penalty(epc_usage_mb)
+
             for s in self.servers:
                 dependency_ready = 0.0
-                
+
                 # Check dependencies
                 for pred_id in partition_graph.predecessors(p.id):
                     if pred_id not in assignment:
                         continue
                     pred_s, pred_ft = assignment[pred_id], finish[pred_id]
-                    
+
                     if pred_s.id != s.id:
                         # Network communication
                         comm_data = sum(self.G_aug[l1.id][l2.id]['weight']
                                       for l1 in partitions_list[pred_id].layers
                                       for l2 in p.layers
                                       if self.G_aug.has_edge(l1.id, l2.id))
-                        comm_data_mb = comm_data / (1024 * 1024)
+                        comm_data_mb = comm_data  # edge weights stored in MB by loader.py
                         comm_time = network_latency(comm_data_mb, self.bandwidth_mbps)
                         arrival = pred_ft + comm_time
                         dependency_ready = max(dependency_ready, arrival)
                     else:
                         # Local dependency
                         dependency_ready = max(dependency_ready, pred_ft)
-                
-                # Start time
-                start_loading = max(server_free_time[s.id], dependency_ready)
-                start_exec = start_loading + paging_cost
-                
-                # Execution time
-                exec_t = (p.total_workload * calculate_penalty(p.total_memory)) / s.power_ratio
-                ft = start_exec + exec_t
-                
+
+                # Start time; loading pipeline overlaps with inference
+                start_t = max(server_free_time[s.id], dependency_ready)
+                exec_t = (p.total_workload * penalty) / s.power_ratio
+                effective_t = max(exec_t, weight_load_time)
+                ft = start_t + effective_t
+
                 if ft < best_ft:
-                    best_ft, best_s, final_exec_t = ft, s, exec_t
-            
+                    best_ft, best_s, best_effective_t = ft, s, effective_t
+
             assignment[p.id], finish[p.id] = best_s, best_ft
             server_free_time[best_s.id] = best_ft
             server_schedule[best_s.id].append({
-                'start': best_ft - final_exec_t,
+                'start': best_ft - best_effective_t,
                 'end': best_ft,
                 'partition_id': p.id,
                 'partition': p
             })
         
-        return ScheduleResult("Ours(HPA)", max(finish.values()), server_schedule, partitions)
+        # Single-server safeguard: ensure Ours never worse than best single-server sequential
+        heft_latency = max(finish.values())
+        best_single_s = max(self.servers, key=lambda s: s.power_ratio)
+
+        # Single-server reference uses OCC's DDR loading model (matching alg_occ.py)
+        ss_time = 0.0
+        for pid in topo_order:
+            p_ss = partitions_list[pid]
+            weight_mb_ss = p_ss.get_static_memory()
+            weight_load_ss = weight_mb_ss / WEIGHT_COPY_BW_MB_PER_MS
+            activation_peak_ss = p_ss.total_memory - p_ss.get_static_memory()
+            epc_usage_ss = activation_peak_ss + RING_BUFFER_EPC_MB
+            exec_ss = (p_ss.total_workload * calculate_penalty(epc_usage_ss)) / best_single_s.power_ratio
+            ss_time += max(exec_ss, weight_load_ss)
+
+        if ss_time < heft_latency:
+            ss_schedule = {s.id: [] for s in self.servers}
+            t_ss = 0.0
+            for pid in topo_order:
+                p_ss = partitions_list[pid]
+                weight_mb_ss = p_ss.get_static_memory()
+                weight_load_ss = weight_mb_ss / WEIGHT_COPY_BW_MB_PER_MS
+                activation_peak_ss = p_ss.total_memory - p_ss.get_static_memory()
+                epc_usage_ss = activation_peak_ss + RING_BUFFER_EPC_MB
+                exec_ss = (p_ss.total_workload * calculate_penalty(epc_usage_ss)) / best_single_s.power_ratio
+                effective_ss = max(exec_ss, weight_load_ss)
+                ss_schedule[best_single_s.id].append({
+                    'start': t_ss,
+                    'end': t_ss + effective_ss,
+                    'partition_id': pid,
+                    'partition': p_ss
+                })
+                t_ss += effective_ss
+            return ScheduleResult("Ours(HPA)", ss_time, ss_schedule, partitions)
+
+        return ScheduleResult("Ours(HPA)", heft_latency, server_schedule, partitions)
     
     def _compute_priorities(self, partition_graph: nx.DiGraph, 
                           partitions_list: Dict[int, Partition]) -> Dict[int, float]:
