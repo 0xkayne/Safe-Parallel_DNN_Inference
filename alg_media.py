@@ -13,13 +13,12 @@ class MEDIAAlgorithm:
 
     def _select_edges_for_partitioning(self):
         """
-        Algorithm 1: Select candidate edges for merging.
-        MEDIA focuses on filling partitions efficiently. We relax the branching constraints 
-        to allow merging parallel nodes if it leads to better resource utilization.
-        
-        Constraint 1: For multi-server scenarios, only merge edges where at least one endpoint 
-                      has degree 1 (to preserve parallelism).
-        Constraint 2: Prevent same-level conflicts to avoid creating invalid partition structures.
+        Algorithm 1 (paper): Select candidate edges for merging.
+
+        Constraint 1 (Lemma 1): Include edge (u,v) only if |Succ(u)|==1 OR |Pre(v)|==1.
+                      This ensures the coarse graph G_M remains acyclic.
+        Constraint 2 (Lemma 1): For any other successor w of u, if there exists (w',w) in M
+                      and L(u)==L(w)-1, then (u,v) must be excluded.
         """
         M = set()
 
@@ -34,13 +33,10 @@ class MEDIAAlgorithm:
         for u in nx.topological_sort(self.G):
             # Traverse all successors of node u (i.e., edges (u,v) ∈ E)
             for v in self.G.successors(u):
-                # Constraint 1 (stricter form): only merge into nodes with a single predecessor.
-                # Paper allows out_degree(u)==1 OR in_degree(v)==1, but merging into join/concat
-                # nodes (in_degree(v)>1) via the out_degree(u)==1 case serialises parallel
-                # branches: the concat ends up inside one branch's partition, forcing all other
-                # branches to depend on it sequentially.  Requiring in_degree(v)==1 keeps
-                # join nodes as separate partitions so branches can be scheduled in parallel.
-                if self.G.in_degree(v) != 1:
+                # Constraint 1 (paper's original form, Algorithm 1 line 4):
+                # Skip edge (u,v) only if BOTH |Pre(v)| != 1 AND |Succ(u)| != 1.
+                # Equivalently: include edge if in_degree(v)==1 OR out_degree(u)==1.
+                if self.G.in_degree(v) != 1 and self.G.out_degree(u) != 1:
                     continue
                 
                 # Tentatively add the candidate edge, then check constraint 2
@@ -239,29 +235,39 @@ class MEDIAAlgorithm:
         return ScheduleResult("MEDIA", max(finish.values()), server_schedule, partitions)
 
     def _compute_priorities(self, partition_graph, partitions_list):
+        """
+        Paper Eq. 11:
+        Priority(P) = max_{P' in succ(P)} { T(P) + T(P,P') + Priority(P') }
+        For leaf partitions (no successors): Priority(P) = T(P)
+        """
         priorities = {}
         avg_p = sum(s.power_ratio for s in self.servers) / len(self.servers)
-        
-        # Iterative Priority Calculation (Reverse Topological Order)
-        try:
-            topo_order = list(nx.topological_sort(partition_graph))
-        except nx.NetworkXUnfeasible:
-            # Cycle detected! Fallback: use simple node list (priorities will be approximate)
-            # This can happen if partitioning logic constraints were relaxed too much.
-            topo_order = list(partition_graph.nodes())
-        
+
+        topo_order = list(nx.topological_sort(partition_graph))
+
         for pid in reversed(topo_order):
             partition = partitions_list[pid]
             t_exec = (partition.total_workload * calculate_penalty(partition.total_memory)) / avg_p
-            
-            max_succ_priority = 0
+
             successors = list(partition_graph.successors(pid))
-            if successors:
-                # Use .get() with default 0.0 to handle potential cycles where a successor 
-                # might not have been processed yet in the fallback order.
-                max_succ_priority = max(priorities.get(sid, 0.0) for sid in successors)
-            
-            comm_data = sum(self.G[l1.id][l2.id]['weight'] for sid in successors for l1 in partition.layers for l2 in partitions_list[sid].layers if self.G.has_edge(l1.id, l2.id))
-            priorities[pid] = t_exec + comm_data / self.bandwidth_per_ms + max_succ_priority
-            
+            if not successors:
+                # Leaf partition: Priority = T(P)
+                priorities[pid] = t_exec
+            else:
+                # Paper: max over successors of { T(P) + T(P,P') + Priority(P') }
+                max_val = 0.0
+                for sid in successors:
+                    # Communication volume between this partition and successor sid
+                    comm_data = sum(
+                        self.G[l1.id][l2.id]['weight']
+                        for l1 in partition.layers
+                        for l2 in partitions_list[sid].layers
+                        if self.G.has_edge(l1.id, l2.id)
+                    )
+                    t_comm = network_latency(comm_data, self.bandwidth_mbps) if comm_data > 0 else 0.0
+                    val = t_exec + t_comm + priorities.get(sid, 0.0)
+                    if val > max_val:
+                        max_val = val
+                priorities[pid] = max_val
+
         return priorities

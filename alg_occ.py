@@ -22,29 +22,45 @@ class OCCAlgorithm:
         self.bandwidth_mbps = bandwidth_mbps
     
     def run(self):
+        """
+        Partition layers sequentially such that each partition's activation
+        memory fits within the EPC budget.
+
+        Per the Occlumency paper (MobiCom'19 §4-6):
+        - Weights are stored in UNPROTECTED memory outside EPC
+        - EPC holds only: activations (feature maps) + ring buffer (~20 MB)
+        - Available EPC for activations = EPC_EFFECTIVE_MB - RING_BUFFER_EPC_MB
+        """
         topo_order = list(nx.topological_sort(self.G))
         partitions = []
         current_layers = []
 
+        # EPC budget for activations only (ring buffer reserves space for weight staging)
+        activation_epc_budget = EPC_EFFECTIVE_MB - self.RING_BUFFER_EPC_MB
+
         for node_id in topo_order:
             layer = self.layers_map[node_id]
-            
+
             # Try adding this layer to the current partition
             test_layers = current_layers + [layer]
-            # Create temporary partition to calculate accurate peak memory
+            # Create temporary partition to calculate accurate peak activation memory
             test_partition = Partition(-1, test_layers, self.G)
-            
-            if test_partition.total_memory > EPC_EFFECTIVE_MB:
+
+            # Check activation-only peak memory against EPC budget
+            # Weights are outside EPC, so only activations matter for partitioning
+            peak_activation = test_partition._calculate_peak_activation()
+
+            if peak_activation > activation_epc_budget:
                 if current_layers:
                     # Previous layers formed a valid partition, finalize it
                     partitions.append(Partition(len(partitions), current_layers, self.G))
                     current_layers = [layer]
                 else:
-                    # Single layer exceeds EPC, must accept it
+                    # Single layer exceeds EPC, must accept it (will use partitioned convolution)
                     current_layers = [layer]
             else:
                 current_layers.append(layer)
-        
+
         if current_layers:
             partitions.append(Partition(len(partitions), current_layers, self.G))
         return partitions

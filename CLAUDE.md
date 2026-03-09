@@ -8,6 +8,19 @@ Simulation system for a graduation thesis comparing 4 DNN inference scheduling a
 
 Language: Python 3.12. No build step required.
 
+## ⚠️ Research Context (HIGH PRIORITY — read this first)
+
+This project implements **3 baseline methods** reproduced from published papers, plus **our proposed method (Ours)** for comparison. Every analysis, debugging, and experiment discussion MUST be grounded in this mapping:
+
+| Method | Code File | Source Paper | Venue |
+|--------|-----------|-------------|-------|
+| **OCC** | `alg_occ.py` | *Occlumency: Privacy-preserving Remote Deep-learning Inference Using SGX* (Lee et al.) | MobiCom 2019 |
+| **DINA** | `alg_dina.py` | *Distributed Inference Acceleration with Adaptive DNN Partitioning and Offloading* | IEEE TPDS 2024 |
+| **MEDIA** | `alg_media.py` | *DNN Partitioning and Assignment for Distributed Inference in SGX Empowered Edge Cloud* | N/A |
+| **Ours** | `alg_ours.py` | Our proposed method (HPA: tensor parallelism + MEDIA partitioning + HEFT scheduling) | Graduation thesis |
+
+**Key research goal**: Demonstrate that Ours outperforms OCC, DINA, and MEDIA in end-to-end inference latency, especially on models with parallel branch structures (e.g., InceptionV3).
+
 ## Environment Setup
 
 ```bash
@@ -81,12 +94,12 @@ All four algorithms share the same interface: `__init__(G, layers_map, servers, 
 
 ### The Four Algorithms
 
-| File | Class | Strategy | Key Trait |
-|------|-------|----------|-----------|
-| `alg_occ.py` | `OCCAlgorithm` | Strict ≤EPC partitioning | Single-server serial baseline; no network cost |
-| `alg_dina.py` | `DINAAlgorithm` | Strict ≤EPC partitioning | Forced server rotation (line 73): consecutive partitions must use different servers |
-| `alg_media.py` | `MEDIAAlgorithm` | Allows >EPC (paging vs communication tradeoff) | MEDIA-style edge selection + greedy merge + priority scheduling |
-| `alg_ours.py` | `OursAlgorithm` | HPA: tensor parallelism + MEDIA partitioning + HEFT scheduling | 5-stage pipeline: candidate filtering → cost surface → DAG DP → graph augmentation → HEFT |
+| File | Class | Paper Origin | Strategy | Key Trait |
+|------|-------|-------------|----------|-----------|
+| `alg_occ.py` | `OCCAlgorithm` | Occlumency (MobiCom'19) | Activation-only EPC partitioning (weights outside EPC) | Single-server serial baseline; 3-thread pipeline (load/compute/encrypt) |
+| `alg_dina.py` | `DINAAlgorithm` | DINA (IEEE TPDS'24) | Adaptive partitioning + swap-matching | DINA-P: workload proportional to server power; DINA-O: greedy + pairwise swap refinement |
+| `alg_media.py` | `MEDIAAlgorithm` | MEDIA | Allows >EPC (paging vs communication tradeoff) | MEDIA-style edge selection (Constraint 1: in_deg==1 OR out_deg==1) + greedy merge + priority scheduling |
+| `alg_ours.py` | `OursAlgorithm` | **Ours** (thesis) | HPA: tensor parallelism + MEDIA partitioning + HEFT scheduling | 5-stage pipeline: candidate filtering → cost surface → DAG DP → graph augmentation → HEFT |
 
 ### Server Heterogeneity
 
