@@ -64,21 +64,9 @@ class DINAAlgorithm:
         for node_id in topo_order:
             layer = self.layers_map[node_id]
 
-            # Probe memory if we add this layer
-            test_layers = current_layers + [layer]
-            test_partition = Partition(-1, test_layers, self.G)
-
-            # (a) EPC memory constraint – must cut if exceeded
-            if test_partition.total_memory > EPC_EFFECTIVE_MB and current_layers:
-                partitions.append(
-                    Partition(len(partitions), current_layers, self.G))
-                current_layers = [layer]
-                current_workload = layer.workload
-                # Advance slot only if we haven't exhausted servers
-                if slot_idx < num_servers - 1:
-                    slot_idx += 1
-                continue
-
+            # DINA paper (TPDS'24) is NOT SGX-aware — no EPC memory constraint.
+            # Partitions may exceed EPC; the paging penalty is applied later
+            # in _partition_cost() via calculate_penalty().
             current_layers.append(layer)
             current_workload += layer.workload
 

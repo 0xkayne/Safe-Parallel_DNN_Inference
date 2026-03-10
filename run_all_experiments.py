@@ -87,7 +87,8 @@ MODEL_NAME_MAP = {
     'bert_large': 'BERT-large',
     'distilbert_base': 'DistillBERT-base',
     'distilbert_large': 'DistillBERT-large',
-    'inceptionV3': 'inceptionV3',
+    'inceptionV3': 'InceptionV3',
+    'InceptionV3': 'InceptionV3',
     'tinybert_4l': 'TinyBERT-4l',
     'tinybert_6l': 'TinyBERT-6l',
     'vit_base': 'ViT-base',
@@ -338,7 +339,7 @@ def generate_server_charts():
         ('server_hetero_incremental_ViT-small.csv', 'ViT-small'),
         ('server_hetero_incremental_ViT-base.csv', 'ViT-base'),
         ('server_hetero_incremental_ViT-large.csv', 'ViT-large'),
-        ('server_hetero_incremental_inceptionV3.csv', 'InceptionV3'),
+        ('server_hetero_incremental_InceptionV3.csv', 'InceptionV3'),
     ]
     
     for csv_file, model_name in models:
@@ -446,7 +447,7 @@ def generate_network_charts():
         ('network_ViT-small.csv', 'ViT-small'),
         ('network_ViT-base.csv', 'ViT-base'),
         ('network_ViT-large.csv', 'ViT-large'),
-        ('network_inceptionV3.csv', 'InceptionV3'),
+        ('network_InceptionV3.csv', 'InceptionV3'),
     ]
 
     for csv_file, model_name in models:

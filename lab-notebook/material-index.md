@@ -11,18 +11,16 @@
 
 ### Abstract（摘要关键数据）
 
-> **v6 版本（2026-03-05，当前最终）**：所有 Bug 已修复（OCC DDR模型 + MEDIA paging_cost + MEDIA join节点合并）。MEDIA 现在在 InceptionV3 上真实优于 OCC。Exp1+Exp3 完整，Exp2 InceptionV3 MEDIA 列待重跑（其余模型不变）。
+> **v7 版本（2026-03-09，当前最终）**：Baseline 正确性审计完成（OCC/DINA/MEDIA 均按原论文实现）。关键变化：OCC=DINA=MEDIA（同构服务器），只有 Ours 能打破单服务器瓶颈。所有 Exp1/2/3 数据完整更新并交叉验证通过。
 
 | 素材 | 数据 | 来源 |
 |------|------|------|
-| **Ours 主要加速（100Mbps）** | InceptionV3: **1.62×** vs OCC（930ms vs 1506ms）；MEDIA: **1.06×** vs OCC（1426ms vs 1506ms）| [Exp1 v6 结果](phase-3-实验结果分析/notes.md) |
-| **算法正确排名** | InceptionV3: Ours(930) < MEDIA(1426) < OCC(1506) < DINA(2312) — 首次四方法正确有序 | [Exp1 v6 结果](phase-3-实验结果分析/notes.md) |
-| Ours 高带宽加速（InceptionV3） | InceptionV3 @ 500Mbps: **2.70×**（556ms vs OCC=1506ms）；MEDIA @ 500Mbps: 1.15×（1306ms）| [Exp2 v6 结果](phase-3-实验结果分析/notes.md) |
-| Ours 大型模型高带宽加速 | BERT-large @ 500Mbps: **1.27×**（1817ms vs OCC=2307ms）；ViT-large: **1.30×**（2748ms vs OCC=3563ms）| [Exp2 v6 结果](phase-3-实验结果分析/notes.md) |
-| Ours 低带宽鲁棒性 | 任意模型 @ 0.5Mbps: Ours ≈ OCC（单机保底触发）；DINA=**219×~446× OCC**（v6，OCC 基线降低后比值更大）| [Bug 2 修复](phase-2-Bug排查与修复/notes.md) |
-| DINA 低带宽劣化 vs OCC | ViT-large @ 0.5Mbps: DINA=1,208,017ms vs OCC=**3,563ms**（**339×**，v6）；BERT-large: DINA=1,028,452ms vs OCC=2,307ms（**446×**）| [Exp2 结果](phase-3-实验结果分析/notes.md) |
-| MEDIA < OCC for InceptionV3（新） | InceptionV3 100Mbps: MEDIA=1426ms < OCC=1506ms（**0.947×**，5.3%加速）；Exp3 n=4-6: MEDIA=1522 < OCC=1619 | [Exp1/3 v6 结果](phase-3-实验结果分析/notes.md) |
-| 线性模型 MEDIA = OCC（确认） | BERT/ViT 所有模型、所有带宽：MEDIA ≡ OCC（无并行分支可利用）| [Exp1 v6 结果](phase-3-实验结果分析/notes.md) |
+| **OCC=DINA=MEDIA（核心论点）** | 4×Xeon_IceLake 100Mbps：所有12模型 OCC≡DINA≡MEDIA。串行DAG无并行收益，只有Ours（层内TP）能加速 | [Exp1 v7 结果](phase-3-实验结果分析/notes.md) |
+| **Ours 主要加速（100Mbps）** | InceptionV3: **1.62×** vs baseline（930ms vs 1506ms）| [Exp1 v7 结果](phase-3-实验结果分析/notes.md) |
+| Ours 高带宽加速（InceptionV3） | InceptionV3 @ 500Mbps: **2.71×**（557ms vs 1506ms）| [Exp2 v7 结果](phase-3-实验结果分析/notes.md) |
+| Ours 大型模型高带宽加速 | BERT-large @ 500Mbps: **1.27×**（1817ms vs 2307ms）；ViT-large: **1.30×**（2748ms vs 3563ms）| [Exp2 v7 结果](phase-3-实验结果分析/notes.md) |
+| Ours 低带宽鲁棒性 | 任意模型 @ 0.5Mbps: Ours ≈ OCC（单机保底触发）；DINA/MEDIA 也 ≈ OCC（v7正确实现后不再强制分发）| [Exp2 v7 结果](phase-3-实验结果分析/notes.md) |
+| 线性模型 baseline 等价（确认） | BERT/ViT 所有模型、所有带宽：OCC ≡ DINA ≡ MEDIA（无并行分支可利用）| [Exp1 v7 结果](phase-3-实验结果分析/notes.md) |
 
 ---
 

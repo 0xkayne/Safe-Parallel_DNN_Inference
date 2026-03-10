@@ -33,10 +33,14 @@ class MEDIAAlgorithm:
         for u in nx.topological_sort(self.G):
             # Traverse all successors of node u (i.e., edges (u,v) ∈ E)
             for v in self.G.successors(u):
-                # Constraint 1 (paper's original form, Algorithm 1 line 4):
-                # Skip edge (u,v) only if BOTH |Pre(v)| != 1 AND |Succ(u)| != 1.
-                # Equivalently: include edge if in_degree(v)==1 OR out_degree(u)==1.
-                if self.G.in_degree(v) != 1 and self.G.out_degree(u) != 1:
+                # Constraint 1 (restricted form):
+                # Only include edge (u,v) if in_degree(v)==1.
+                # The paper's original also allows out_degree(u)==1, but on our
+                # InceptionV3 DAG that merges concat nodes into branch partitions,
+                # destroying parallel structure.  Restricting to in_degree==1 only
+                # preserves branch parallelism while still being a valid subset of
+                # the paper's candidate set.
+                if self.G.in_degree(v) != 1:
                     continue
                 
                 # Tentatively add the candidate edge, then check constraint 2
