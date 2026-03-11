@@ -13,9 +13,9 @@ class DINAAlgorithm:
 
       DINA-P  (run)      – Adaptive partitioning proportional to server
                            compute capabilities, with EPC memory constraint.
-      DINA-O  (schedule) – Greedy initial assignment followed by pairwise
-                           swap-matching refinement for two-sided exchange
-                           stability.
+      DINA-O  (schedule) – Paper-faithful direct assignment (partition_i →
+                           server_i) followed by pairwise swap-matching
+                           refinement for two-sided exchange stability.
     """
 
     def __init__(self, G, layers_map, servers, bandwidth_mbps):
@@ -145,9 +145,10 @@ class DINAAlgorithm:
         """
         Two-phase scheduling adapted from DINA-O (Algorithm 2):
 
-        Phase 1 – Greedy initial assignment:
-            Assign each partition (in topological order of inter-partition
-            dependencies) to the server that yields the earliest completion.
+        Phase 1 – Direct initial assignment (paper-faithful):
+            Assign partition_i to server_i, matching the DINA-P
+            partitioning intent where partition_i's workload was
+            sized proportionally to server_i's compute power.
 
         Phase 2 – Swap-matching refinement:
             Iteratively try pairwise swaps of server assignments.  A swap is
@@ -170,12 +171,12 @@ class DINAAlgorithm:
         for i, p in enumerate(partitions):
             pred_map[i] = self._get_predecessor_partitions(partitions, p)
 
-        # ---- Phase 1: Greedy assignment ----
-        assignment = [None] * n_parts  # assignment[i] = server index
-        finish_times = [0.0] * n_parts
-        server_available = [0.0] * n_servers
+        # ---- Phase 1: Direct assignment (paper-faithful DINA-O) ----
+        # DINA-P sizes partition_i proportionally to server_i's power,
+        # so the natural initial assignment is partition_i → server_i.
+        assignment = [i % n_servers for i in range(n_parts)]
 
-        # Process partitions in dependency order (topological sort of partition DAG)
+        # Build partition DAG for topological ordering
         part_dag = nx.DiGraph()
         for i in range(n_parts):
             part_dag.add_node(i)
@@ -183,32 +184,10 @@ class DINAAlgorithm:
                 part_dag.add_edge(pred_i, i)
         part_topo = list(nx.topological_sort(part_dag))
 
-        for pi in part_topo:
-            p = partitions[pi]
-            best_server_idx = None
-            best_finish = float('inf')
-
-            # Data-ready time: all predecessor partitions must finish + transfer
-            for si, server in enumerate(self.servers):
-                data_ready = 0.0
-                for pred_i in pred_map[pi]:
-                    pred_finish = finish_times[pred_i]
-                    comm = self._comm_cost(
-                        partitions[pred_i], p,
-                        same_server=(assignment[pred_i] == si))
-                    data_ready = max(data_ready, pred_finish + comm)
-
-                start = max(server_available[si], data_ready)
-                exec_cost = self._partition_cost(p, server)
-                finish = start + exec_cost
-
-                if finish < best_finish:
-                    best_finish = finish
-                    best_server_idx = si
-
-            assignment[pi] = best_server_idx
-            finish_times[pi] = best_finish
-            server_available[best_server_idx] = best_finish
+        # Compute initial finish_times via simulation
+        _, finish_times_list = self._evaluate_makespan(
+            partitions, assignment, pred_map, part_topo, return_times=True)
+        finish_times = list(finish_times_list)
 
         # ---- Phase 2: Swap-matching refinement ----
         # Repeatedly try all pairwise swaps; accept if makespan decreases.
