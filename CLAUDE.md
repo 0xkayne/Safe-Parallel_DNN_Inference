@@ -37,6 +37,8 @@ pip install -r requirements.txt
 
 ## Running Experiments
 
+进行验证性实验时，只在 Inception V3 模型上运行，不要把所有模型都执行一遍，时间开销太大
+
 ```bash
 # Run all 3 experiments + generate all charts
 python run_all_experiments.py

@@ -11,16 +11,16 @@
 
 ### Abstract（摘要关键数据）
 
-> **v7 版本（2026-03-09，当前最终）**：Baseline 正确性审计完成（OCC/DINA/MEDIA 均按原论文实现）。关键变化：OCC=DINA=MEDIA（同构服务器），只有 Ours 能打破单服务器瓶颈。所有 Exp1/2/3 数据完整更新并交叉验证通过。
+> **v12 版本（2026-03-12，当前最终）**：MEDIA 论文忠实复现（删除 Stage 2 + Constraint 2 不等长分支缺陷修复）。MEDIA: 41 分区 → 3 server / 1403ms（v11 仅 1 server）；DINA: 2 server ✅；OCC: 1 server/35.8MB ✅；Ours: 4 server / 930ms（最优）。
 
 | 素材 | 数据 | 来源 |
 |------|------|------|
-| **OCC=DINA=MEDIA（核心论点）** | 4×Xeon_IceLake 100Mbps：所有12模型 OCC≡DINA≡MEDIA。串行DAG无并行收益，只有Ours（层内TP）能加速 | [Exp1 v7 结果](phase-3-实验结果分析/notes.md) |
-| **Ours 主要加速（100Mbps）** | InceptionV3: **1.62×** vs baseline（930ms vs 1506ms）| [Exp1 v7 结果](phase-3-实验结果分析/notes.md) |
-| Ours 高带宽加速（InceptionV3） | InceptionV3 @ 500Mbps: **2.71×**（557ms vs 1506ms）| [Exp2 v7 结果](phase-3-实验结果分析/notes.md) |
-| Ours 大型模型高带宽加速 | BERT-large @ 500Mbps: **1.27×**（1817ms vs 2307ms）；ViT-large: **1.30×**（2748ms vs 3563ms）| [Exp2 v7 结果](phase-3-实验结果分析/notes.md) |
-| Ours 低带宽鲁棒性 | 任意模型 @ 0.5Mbps: Ours ≈ OCC（单机保底触发）；DINA/MEDIA 也 ≈ OCC（v7正确实现后不再强制分发）| [Exp2 v7 结果](phase-3-实验结果分析/notes.md) |
-| 线性模型 baseline 等价（确认） | BERT/ViT 所有模型、所有带宽：OCC ≡ DINA ≡ MEDIA（无并行分支可利用）| [Exp1 v7 结果](phase-3-实验结果分析/notes.md) |
+| **SGX 内存真实性增强（v10 核心）** | workspace（activation−output）+ 碎片 ×1.15 + 框架 10MB；InceptionV3: 100.0→117.7MB | [Exp1 v10 结果](phase-3-实验结果分析/notes.md) |
+| **MEDIA Check() 被迫选 paging（v10 关键发现）** | BERT-large@100Mbps: 层间传输 16.5MB→1325ms >> paging 163ms → Check() 合并 → 6 分区全超 EPC → M/O=4.57× | [Exp1 v10 结果](phase-3-实验结果分析/notes.md) |
+| **MEDIA 退化** | v10 大模型 3-5× 慢于 OCC（BERT-large: 4.57×, ViT-large: 5.09×）；合并 = 累积更多激活 = 更严重 paging | [Exp1 v10 结果](phase-3-实验结果分析/notes.md) |
+| **Ours 主要加速（100Mbps）** | InceptionV3: **1.62×** vs OCC（930ms vs 1506ms），所有12模型 Ours ≤ OCC | [Exp1 v10 结果](phase-3-实验结果分析/notes.md) |
+| OCC 天然适配 | Weights outside EPC → 仅 activation+ring buffer 在 EPC → 分区小 → 无 paging | [v9 分析](phase-4-算法理论分析/notes.md) |
+| Ours 低带宽鲁棒性 | 任意模型 @ 0.5Mbps: Ours ≈ OCC（单机保底触发） | [Exp2 结果](phase-3-实验结果分析/notes.md) |
 
 ---
 
@@ -29,8 +29,9 @@
 | 素材 | 要点 | 来源 |
 |------|------|------|
 | SGX paging 开销极高 | BERT-base: paging 占推理延迟 79%（2856ms out of 3613ms） | [Phase 1 模型数据](phase-1-系统搭建与baseline验证/notes.md) |
+| **TEE 中 free() 不释放 EPC 页（v9）** | SGX enclave 的 malloc arena 碎片 + 4KB 页粒度 + LibOS 内存池 → 激活内存只增不减 → peak-liveness 模型低估 8× | [v9 内存模型分析](phase-4-算法理论分析/notes.md) |
+| **MEDIA 合并策略在 TEE 下失效（v9）** | 累积激活模型下合并 = 单调增加内存 → MEDIA 2-5× 慢于 OCC | [v9 分析](phase-4-算法理论分析/notes.md) |
 | 分布式不总是更好 | DINA @ 0.5Mbps 比 OCC 慢 88×，说明朴素分布式方法有严重局限 | [DINA 分析](phase-4-算法理论分析/notes.md) |
-| 现有方法 MEDIA 受限于并行结构 | MEDIA 仅对有并行分支的模型有效（InceptionV3: 5.3%加速）；线性 Transformer 等价 OCC | [MEDIA 分析](phase-4-算法理论分析/notes.md) |
 | EPC 是关键约束 | EPC 93MB 限制导致模型必须拆分为 4-15 个分区 | [Phase 1 模型数据](phase-1-系统搭建与baseline验证/notes.md) |
 
 ---
@@ -39,10 +40,11 @@
 
 | 素材 | 要点 | 来源 |
 |------|------|------|
-| SGX paging cost model | `penalty = 4.5×` for first EPC overflow，线性增长之后 | [Phase 1 架构概述](phase-1-系统搭建与baseline验证/notes.md) |
+| SGX paging cost model | v9: 渐进模型 `penalty = 1.0 + 2.0 × (overflow/EPC)`（取代旧 4.5× 阶跃） | [v9 分析](phase-4-算法理论分析/notes.md) |
 | EPC 有效大小 93MB | 128MB 物理 - 35MB OS 保留 | [Phase 1 架构概述](phase-1-系统搭建与baseline验证/notes.md) |
 | DINA 强制轮换的缺陷 | 在带宽 < 50Mbps 时系统性劣于 OCC | [DINA 分析](phase-4-算法理论分析/notes.md) |
 | MEDIA 的前提假设 | 需要多条"EPC 级别"的独立大型并行路径 | [MEDIA 分析](phase-4-算法理论分析/notes.md) |
+| **MEDIA Constraint 2 结构缺陷（v12）** | `L(u)==L(w)-1` 级别检查仅保护等长分支；InceptionV3 不等长分支（1-3层）绕过检查 → 并行结构坍缩为链式 DAG → 仅 1 server | [v12 分析](phase-3-实验结果分析/notes.md) |
 
 ---
 
@@ -52,7 +54,7 @@
 |------|------|------|
 | HPA 并行度 DP 决策 | `Cost(v,k) = T_comp/k^γ + Penalty(M/k) + T_AllReduce × P_sync` | [Ours vs MEDIA 分析](phase-4-算法理论分析/notes.md) |
 | AllReduce 通信模型 | Ring AllReduce: `2(k-1)/k × output_bytes`，同步概率 0.5 | [Ours vs MEDIA 分析](phase-4-算法理论分析/notes.md) |
-| DAG liveness 峰值内存 | `total_mem = persistent + peak_activation`，DAG 遍历追踪激活存活窗口 | [内存模型验证](phase-3-实验结果分析/notes.md) |
+| **TEE 累积激活内存模型（v9）** | `peak_activation = Σ output_bytes`（不释放），取代 DAG liveness 追踪。物理依据：SGX free()→arena 碎片→EPC 页不回收 | [v9 内存模型分析](phase-4-算法理论分析/notes.md) |
 | 算子级 vs 分区级并行 | Ours=张量并行（层内），MEDIA=流水并行（分区间），根本差异 | [Ours vs MEDIA 分析](phase-4-算法理论分析/notes.md) |
 | 带宽自适应的意义 | 低带宽禁用 HPA（k=1），高带宽激活，平滑退化 | [Ours vs MEDIA 分析](phase-4-算法理论分析/notes.md) |
 
@@ -68,6 +70,17 @@
 建议 Table 1：12 模型 × 4 方法的延迟对比（单位 ms）
 加粗每行最优值（Ours）
 底部行：平均加速比
+```
+
+#### Per-Server Peak Memory（RQ4：baseline 论文对齐验证）
+
+来源：[v11 对齐验证](phase-3-实验结果分析/notes.md)，`diagnostics/server_peak_memory.py`
+
+```
+建议 Figure：InceptionV3 per-server peak memory 3D 图
+- 对比论文 Fig.(e)：OCC 1srv/35.8MB, DINA 2srv/38+94MB, MEDIA 3srv/29+18+12MB
+- EPC threshold plane at 93MB
+- 说明 MEDIA 3 vs 4 server 差异源自 M-edge 处理顺序
 ```
 
 #### 网络带宽消融（RQ2：带宽敏感性）
@@ -99,7 +112,9 @@
 
 | 素材 | 要点 | 来源 |
 |------|------|------|
-| MEDIA 的条件有效性（v6 精确） | 有并行分支（InceptionV3）时 MEDIA < OCC（5-18% at 100Mbps Exp3）；线性模型 RTT 粘性导致 MEDIA = OCC | [MEDIA 根因分析](phase-4-算法理论分析/notes.md) |
+| **MEDIA Check() 双内存模型设计（v11）** | 分区决策用 Σ layer.memory（保守启发式），调度用 peak-liveness（物理准确）；论文的 Check() 刻意保守以产生更多分区 | [v11 对齐验证](phase-3-实验结果分析/notes.md) |
+| **MEDIA 宽度 3 vs 4 差异（v11）** | M-edge 按通信量降序处理，第一条分支在 fork 保护触发前合并 → inception width=3（论文 4）；数据依赖的处理顺序效应 | [v11 对齐验证](phase-3-实验结果分析/notes.md) |
+| **MEDIA 在 TEE 下失效（v9）** | 累积激活模型下 MEDIA 2-5× 慢于 OCC（BERT 2.14×, ViT-large 3.48×）；合并策略单调增加内存 → paging 恶化；仅在 ≥1Gbps 时趋近 OCC | [v9 分析](phase-4-算法理论分析/notes.md) |
 | Ours 在低带宽的退化 | InceptionV3 @ 0.5Mbps: Ours≈OCC（单机保底触发，非 AllReduce 过贵） | [Exp2 结果](phase-3-实验结果分析/notes.md) |
 | Ours 低带宽鲁棒性 vs DINA | @ 0.5Mbps：Ours≈1×OCC，DINA=**219-446×OCC**（v6）；单机保底是核心机制 | [Bug 2 修复](phase-2-Bug排查与修复/notes.md) |
 | Ours 的适用边界 | 建议带宽 ≥ 10Mbps（InceptionV3），50Mbps（BERT-base），500Mbps（BERT-large/ViT-large） | [Ours vs MEDIA 分析](phase-4-算法理论分析/notes.md) |
@@ -131,20 +146,24 @@
 
 ---
 
-### 专利点 P2：基于 DAG 活跃性分析的 EPC 峰值内存估计方法
+### 专利点 P2：基于 TEE 物理约束的 EPC 峰值内存估计方法
 
-**技术方案**：针对 DNN 模型分区的 EPC 内存需求估计问题，提出基于 DAG 拓扑排序的激活内存活跃性（liveness）分析方法。对于分区内的每一步执行，追踪哪些前序层的输出张量仍被后续层依赖（即"仍存活"），计算各时刻的激活内存累计量，取峰值作为分区的动态内存需求。
+**技术方案**：针对 SGX TEE 环境下 DNN 推理分区的 EPC 内存需求估计问题，提出基于 "累积 output_bytes" 的激活内存模型。该模型基于 SGX 物理约束（free() 不释放 EPC 页、malloc arena 碎片、4KB 页粒度）建模，认为分区执行期间所有层的输出激活累积不释放，以此估算分区峰值内存。
 
-**EPC 内存组成**：`peak_memory = Σ(weight+bias+encryption) + max_t(Σ_live activation_t)`
+**EPC 内存组成**：`peak_memory = Σ(weight+bias+encryption) + Σ(output_bytes)`
 
 **新颖性要点**：
-- 区分"静态内存"（权重，用于 paging cost）和"峰值内存"（权重+激活，用于 EPC 约束判断）
-- 在 DAG 子图上做活跃性分析，正确处理并行分支（如 inception 模块多路并行激活同时存活的情况）
-- 与分区策略紧密结合：分区切割决策基于峰值内存而非参数量
+- 基于 SGX EPC 物理机制（EREMOVE 不由 free() 触发、arena 碎片、LibOS 内存池）推导累积模型
+- 区分"静态内存"（权重，用于 paging cost / swap cost）和"峰值内存"（权重+累积激活，用于 EPC 约束判断和 paging penalty 计算）
+- 使用 `output_bytes`（仅自身输出）而非 `activation_memory`（含前驱输出，双重计数），避免层间重复计算
+- 配合渐进 penalty 函数 `1.0 + 2.0 × (overflow/EPC)` 模拟连续的 EPC 换页代价
 
-**技术效果**：避免因忽略激活内存导致的分区过小（InceptionV3 P0 激活峰值 10.6MB，占总内存 11.8%）。
+**技术效果**（v9 验证数据）：
+- InceptionV3 峰值激活：peak-liveness 10.6MB → 累积模型 83.1MB（更接近真实 ~100MB）
+- 揭示 MEDIA 合并策略在 TEE 下的根本缺陷：合并 = 累积激活增加 = paging 恶化（2-5× 慢于 OCC）
+- OCC "weights outside EPC" 方案与累积模型天然兼容
 
-来源：[内存模型验证](phase-3-实验结果分析/notes.md)
+来源：[v9 内存模型分析](phase-4-算法理论分析/notes.md) + [Exp1 v9 结果](phase-3-实验结果分析/notes.md)
 
 ---
 

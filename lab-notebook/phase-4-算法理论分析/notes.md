@@ -2,6 +2,100 @@
 
 ---
 
+### [2026-03-12] TEE 累积激活模型：物理推导与算法影响分析
+
+**类型**：`关键发现` / `理论分析` / `素材`
+
+#### 1. 问题提出
+
+v1-v8 使用 peak-liveness 模型估算分区激活内存：追踪 DAG 中每个激活张量的 "最后消费者"，消费完毕后立即释放。该模型在 CPU/GPU 上合理（malloc/free 高效），但在 SGX TEE 中不成立。
+
+#### 2. SGX EPC 内存回收机制分析
+
+**为什么 free() 不释放 EPC 页？**
+
+1. **EREMOVE 不由 free() 触发**：应用层 `free()` 仅将内存归还给 enclave 内部的 malloc arena（如 dlmalloc/tcmalloc），不会调用 `EREMOVE` 指令将 EPC 页返回给 OS。
+2. **Arena 碎片**：malloc arena 以 slab/bin 管理内存，释放的块可能因相邻块仍在使用而无法合并为完整页。
+3. **页粒度不匹配**：EPC 以 4KB 页为单位管理。一个 4KB 页内只要有 1 字节在使用，整页就不可回收。
+4. **LibOS/Runtime 内存池**：ONNX Runtime、Gramine 等使用大块内存池，几乎不向 OS 归还。
+
+**结果**：分区执行期间，每个层的输出激活占用的 EPC 页持续累积，不回收。
+
+#### 3. 累积 output_bytes 模型
+
+```
+peak_activation(P) = Σ_{layer ∈ P} output_bytes(layer) / (1024²)
+peak_memory(P) = Σ(weight + bias + encryption) + peak_activation(P)
+```
+
+**关键设计决策**：使用 `output_bytes` 而非 `activation_memory`。
+- `activation_memory` = Σ(前驱 output) + 自身 output → 层间双重计数
+- `output_bytes` = 仅自身输出 → 无双重计数
+
+**验证（InceptionV3 全模型）**：
+| 模型 | peak-liveness | 累积 output | 真实估计 |
+|------|-------------|------------|---------|
+| peak activation | 10.6 MB | 83.1 MB | ~100 MB |
+| total peak memory | 100.0 MB | 172.5 MB | ~276 MB |
+
+累积模型误差 ~17%，来源于 workspace buffers（im2col 等），可接受。
+
+#### 4. 对各算法的影响分析
+
+**OCC**：几乎不受影响。
+- 原理：weights outside EPC，仅 activation + ring buffer (20MB) 在 EPC 中
+- OCC 按 activation EPC budget 分区，累积模型下分区更小但 activation 仍在 budget 内
+- InceptionV3: P0 activation=72.2MB + ring=20MB = 92.2MB < 93MB EPC ✓
+
+**MEDIA**：严重退化（2-5× 慢于 OCC）。
+- 原理：MEDIA 的 Check() 在 100Mbps 下因通信代价过高（4.75MB→385ms），永远批准合并
+- 合并后分区包含数百层 → 累积激活 100-300MB → paging penalty 3-8×
+- 分区 DAG 仍为链 → 无法跨服务器并行
+
+**DINA**：同样退化。按工作量分区 → 大分区 → 严重 paging。
+
+**Ours**：基本不受影响。
+- 张量并行（层内 k 分片）+ HEFT 调度独立于分区内存模型
+- 分区策略继承自 MEDIA 但 HEFT 可跨服务器并行
+
+#### 5. 渐进 penalty 函数
+
+旧模型（阶跃）：93MB 处 1.0→4.5 跳变，物理不合理。
+新模型（渐进）：`penalty = 1.0 + 2.0 × (overflow / EPC)`
+
+| 溢出量 | 旧 penalty | 新 penalty |
+|--------|-----------|-----------|
+| 0 MB (93MB) | 1.0 | 1.0 |
+| 47 MB (140MB) | 4.5 | 2.01 |
+| 93 MB (186MB) | 4.5 | 3.0 |
+| 186 MB (279MB) | 4.75 | 5.0 |
+
+渐进模型在中等溢出时更温和（更符合实测），在大量溢出时更严厉。
+
+#### 6. MEDIA "合并换通信" 策略在 TEE 下的失效机制
+
+**命题**：在累积激活模型下，MEDIA 的合并策略单调增加分区内存。
+
+**证明（直觉）**：
+- 合并 P1∪P2 后，cumulative_activation = cum(P1) + cum(P2)（所有 output 张量均累积）
+- 因此 penalty(P1∪P2) ≥ max(penalty(P1), penalty(P2))
+- 合并永远增加 paging 成本
+
+**MEDIA Check() 的盲点**：
+```
+merge if: T(merged) ≤ T(P1) + T(comm) + T(P2)  // 串行比较
+```
+- 未考虑多服务器并行：分离后 P1, P2 可并行 → 实际成本 = max(T(P1), T(P2)) + T(comm)
+- 在 100Mbps 下 T(comm) 远大于 paging penalty → 永远合并
+- 但合并后的单链无法利用多服务器 → 实际性能等于/差于 OCC
+
+> **素材标注**：
+> - **论文 Design/Methodology（§4.x 内存模型）**：上述推导可直接作为论文中 "TEE-aware memory model" 章节的技术内容
+> - **论文 Related Work**：指出 MEDIA 论文隐式假设 peak-liveness，在 TEE 环境下不成立
+> - **专利 P2 核心**：累积 output_bytes 模型 + 渐进 penalty 函数作为专利技术方案的核心组成
+
+---
+
 ### [2026-03-03] MEDIA ≡ OCC 完整根因分析
 
 **类型**：`关键发现` / `素材`

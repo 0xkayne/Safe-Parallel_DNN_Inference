@@ -29,62 +29,82 @@ class DINAAlgorithm:
     # ------------------------------------------------------------------
     def run(self):
         """
-        Partition the DNN DAG into sub-tasks whose workload is proportional
-        to the compute capability (power_ratio) of each server.
+        Adaptive partitioning with optimal K search (DINA paper Algorithm 1).
+
+        The DINA paper determines the number of sub-tasks K via a
+        computation–communication tradeoff: more partitions enable parallelism
+        but increase inter-partition communication.  We search K from 1 to
+        len(servers) and select the K that minimizes end-to-end makespan.
+        """
+        best_parts = None
+        best_makespan = float('inf')
+
+        for k in range(1, len(self.servers) + 1):
+            parts = self._partition_for_k(k)
+            makespan = self._quick_evaluate(parts, k)
+            if makespan < best_makespan:
+                best_makespan = makespan
+                best_parts = parts
+
+        return best_parts
+
+    def _partition_for_k(self, k):
+        """
+        Partition the DNN DAG into exactly *k* sub-tasks whose workload is
+        proportional to the compute capability of the first *k* servers.
 
         Paper mapping (Algorithm 1, line 3):
             ρ_i = Σ_{j<i} (c_j / φ_{fa}) / Σ_{j=0..F} (c_j / φ_{fa})
-        Here φ_{fa} is the service utility; we use server power_ratio as a
-        direct proxy since our simulation has no queuing/wireless aspects.
-
-        The ratio tells us the *fraction* of total workload each server
-        should handle.  We walk layers in topological order and start a new
-        partition whenever the accumulated compute time exceeds the current
-        server's target share, OR when EPC memory would be exceeded.
         """
         topo_order = list(nx.topological_sort(self.G))
-        num_servers = len(self.servers)
+        servers_k = self.servers[:k]
 
-        # --- compute target workload per partition (proportional to power) ---
-        total_power = sum(s.power_ratio for s in self.servers)
+        total_power = sum(s.power_ratio for s in servers_k)
         total_workload = sum(self.layers_map[n].workload for n in topo_order)
 
-        # Target workload for each server slot (sorted by original order)
-        # Each partition i is sized proportionally to server i's power_ratio.
-        targets = []
-        for s in self.servers:
-            targets.append(total_workload * s.power_ratio / total_power)
+        targets = [total_workload * s.power_ratio / total_power for s in servers_k]
 
-        # --- walk layers and cut partitions ---
         partitions = []
         current_layers = []
         current_workload = 0.0
-        slot_idx = 0  # which server slot we are filling
+        slot_idx = 0
 
         for node_id in topo_order:
             layer = self.layers_map[node_id]
-
-            # DINA paper (TPDS'24) is NOT SGX-aware — no EPC memory constraint.
-            # Partitions may exceed EPC; the paging penalty is applied later
-            # in _partition_cost() via calculate_penalty().
             current_layers.append(layer)
             current_workload += layer.workload
 
-            # (b) Workload target for the current slot reached
             target = targets[slot_idx] if slot_idx < len(targets) else targets[-1]
-            if current_workload >= target and slot_idx < num_servers - 1:
+            if current_workload >= target and slot_idx < k - 1:
                 partitions.append(
                     Partition(len(partitions), current_layers, self.G))
                 current_layers = []
                 current_workload = 0.0
                 slot_idx += 1
 
-        # Flush remaining layers
         if current_layers:
             partitions.append(
                 Partition(len(partitions), current_layers, self.G))
 
         return partitions
+
+    def _quick_evaluate(self, partitions, k):
+        """Quick makespan estimate for K-search: partition_i → server_i."""
+        n_parts = len(partitions)
+        pred_map = {}
+        for i, p in enumerate(partitions):
+            pred_map[i] = self._get_predecessor_partitions(partitions, p)
+
+        part_dag = nx.DiGraph()
+        for i in range(n_parts):
+            part_dag.add_node(i)
+            for pred_i in pred_map[i]:
+                part_dag.add_edge(pred_i, i)
+        part_topo = list(nx.topological_sort(part_dag))
+
+        assignment = [i % len(self.servers) for i in range(n_parts)]
+        return self._evaluate_makespan(
+            partitions, assignment, pred_map, part_topo)
 
     # ------------------------------------------------------------------
     # Helper: compute the cost of running a partition on a given server

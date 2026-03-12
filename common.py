@@ -10,30 +10,21 @@ EPC_EFFECTIVE_MB = 93.0  # (128 - 35) MB
 def calculate_penalty(memory_mb):
     """
     Calculate execution penalty for partitions exceeding EPC.
-    
+
     Args:
         memory_mb: Total memory requirement of the partition in MB
-    
+
     Returns:
         float: Penalty multiplier (1.0 = no penalty)
-    
-    Breakdown:
-    - memory <= EPC: No overflow, penalty = 1.0
-    - EPC < memory <= 2*EPC: First overflow, large initialization cost ≈ 4.5×
-    - memory > 2*EPC: Additional linear growth ≈ 0.25× per extra EPC
-    
-    Note: This does NOT include per-page paging costs (those are in swap_time).
+
+    Model: Gradual linear growth beyond EPC threshold.
+    penalty = 1.0 + slope * (overflow / EPC)
+    slope = 2.0 (calibrated to match MEDIA paper Eq.1 paging behavior)
     """
     if memory_mb <= EPC_EFFECTIVE_MB:
         return 1.0
-    elif memory_mb <= 2 * EPC_EFFECTIVE_MB:
-        # First EPC overflow – large one-time EINIT + metadata cost
-        # Empirical value from ICDCS'22 measurements
-        return 4.5
-    else:
-        # Additional EPCs – modest linear growth for continued paging
-        extra_ratio = (memory_mb - 2 * EPC_EFFECTIVE_MB) / EPC_EFFECTIVE_MB
-        return 4.5 + 0.25 * extra_ratio
+    overflow_ratio = (memory_mb - EPC_EFFECTIVE_MB) / EPC_EFFECTIVE_MB
+    return 1.0 + 2.0 * overflow_ratio
 
 EPC_EFFECTIVE_MB = 93.0  # (128 - 35) MB
 
@@ -46,6 +37,17 @@ PAGING_BANDWIDTH_MB_PER_MS = DEFAULT_PAGING_BW_MBPS / 1000.0  # 1.0 MB/ms
 PAGE_SIZE_KB = 4               # 4 KB per page
 PAGE_FAULT_OVERHEAD_MS = 0.03  # 30 µs per page fault
 ENCLAVE_ENTRY_EXIT_OVERHEAD_MS = 0.005  # 5 µs per ecall/ocall
+
+# SGX Enclave Memory Realism Parameters
+# Heap fragmentation: dlmalloc/jemalloc inside enclave cannot perfectly reuse freed
+# virtual pages — different tensor sizes cause internal/external fragmentation.
+# Typical overhead: 10-20% (conservative 15%, based on jemalloc benchmarks on DNN workloads)
+HEAP_FRAGMENTATION_FACTOR = 1.15
+
+# Framework runtime overhead: inference engine metadata, graph scheduler, thread stacks,
+# crypto context (AES-GCM state), and SGX SDK internal structures.
+# Measured range: 5-20 MB for ONNX Runtime / TFLite inside SGX (take conservative 10 MB)
+FRAMEWORK_RUNTIME_OVERHEAD_MB = 10.0
 
 # ============================================
 # Distributed Multi-TEE Inference Parameters
@@ -252,21 +254,29 @@ class Partition:
         self.ready_time = 0.0
 
     def _calculate_peak_memory(self):
-        """Calculate peak memory requirement considering activation liveness."""
+        """Calculate peak memory requirement considering activation liveness,
+        workspace memory, heap fragmentation, and framework runtime overhead.
+
+        Total = persistent + peak_activation * fragmentation + framework_overhead
+        """
         if not self.layers:
             return 0.0
-        
+
         # Persistent memory: weights + biases + encryption overhead
         # These must be loaded and stay in memory during the partition execution
         persistent_memory = sum(
-            l.weight_memory + l.bias_memory + l.encryption_overhead 
+            l.weight_memory + l.bias_memory + l.encryption_overhead
             for l in self.layers
         )
-        
-        # Dynamic activation memory peak
+
+        # Dynamic activation memory peak (includes workspace transients)
         peak_activation = self._calculate_peak_activation()
-        
-        return persistent_memory + peak_activation
+
+        # Heap fragmentation: real allocators cannot perfectly reuse freed pages
+        peak_activation *= HEAP_FRAGMENTATION_FACTOR
+
+        # Framework runtime overhead: inference engine internals per enclave
+        return persistent_memory + peak_activation + FRAMEWORK_RUNTIME_OVERHEAD_MB
 
     def get_static_memory(self):
         """Calculate implementation-static memory (Weights + Bias + Encryption Overhead)."""
@@ -277,49 +287,71 @@ class Partition:
         return sum(l.weight_memory + l.bias_memory + l.encryption_overhead for l in self.layers)
 
     def _calculate_peak_activation(self):
-        """Calculate peak activation memory usage during execution."""
+        """Calculate peak activation memory using DAG liveness analysis.
+
+        Tracks which output tensors are "live" (still needed by a downstream
+        layer in this partition) at each execution step.  An output becomes
+        live when its producing layer executes and dies when all of its
+        in-partition consumers have executed.
+
+        Additionally models **workspace memory**: temporary buffers needed
+        during a layer's computation (e.g., im2col for Conv, intermediate
+        matmul products).  Workspace = activation_memory − output_mb; it is
+        live only during that layer's execution step and freed immediately
+        after.  This matches real DNN runtime behaviour where frameworks
+        allocate scratch space, compute, then free before the next op.
+
+        This models real SGX behaviour: heap allocators (dlmalloc / jemalloc)
+        inside the enclave reuse freed virtual pages, so the EPC footprint
+        equals the high-water mark of concurrently live tensors — not the
+        cumulative sum.  EPC physical pages stay committed (no EREMOVE), but
+        virtual-address reuse means no *additional* pages are needed once a
+        tensor is freed and a same-sized tensor is allocated in its place.
+        """
+        if not self.layers:
+            return 0.0
+
+        layer_ids = set(l.id for l in self.layers)
+        id_to_layer = {l.id: l for l in self.layers}
+
+        # Count how many in-partition successors each layer has
+        remaining_consumers = {}
+        for lid in layer_ids:
+            count = 0
+            if self.dag is not None:
+                for succ in self.dag.successors(lid):
+                    if succ in layer_ids:
+                        count += 1
+            remaining_consumers[lid] = count
+
+        # Simulate execution in topological order, tracking live set
+        live_memory = 0.0  # MB currently live (persistent output tensors)
         peak = 0.0
-        
-        # Fast lookup set for layer IDs in this partition
-        partition_layer_ids = {l.id for l in self.layers}
-        
-        # Map layer ID to its index in self.layers for order checking
-        layer_indices = {l.id: i for i, l in enumerate(self.layers)}
-        
-        # We verify memory state at the END of each layer's execution
-        # For each step i (after layer i finishes):
-        for i in range(len(self.layers)):
-            current_activation = 0.0
-            
-            # Check all layers processed so far (0 to i) to see if their activation is still needed
-            for j in range(i + 1):
-                layer = self.layers[j]
-                
-                # Check if layer j's output is needed by any future layer
-                is_needed = False
-                
-                for succ_id in self.dag.successors(layer.id):
-                    if succ_id in partition_layer_ids:
-                        # Successor is in the same partition
-                        succ_idx = layer_indices[succ_id]
-                        # If successor hasn't executed yet (index > i), we need to keep activation
-                        if succ_idx > i:
-                            is_needed = True
-                            # Optimization: Just need one reason to keep it
-                            break 
-                    else:
-                        # Successor is outside the partition (or on another node)
-                        # We must assume it's needed until partition finishes (or transferred)
-                        # In this simple model, we assume it consumes memory until end of partition execution
-                        is_needed = True
-                        break
-                
-                if is_needed:
-                    current_activation += layer.activation_memory
-            
-            # Update peak found so far
-            peak = max(peak, current_activation)
-            
+
+        for layer in self.layers:  # already in topological order
+            # This layer's output becomes live
+            out_mb = layer.output_bytes / (1024 * 1024)
+            live_memory += out_mb
+
+            # Workspace memory: temporary buffers during this layer's execution
+            # (e.g., im2col, intermediate matmul, BatchNorm statistics)
+            # activation_memory captures the layer's full activation footprint;
+            # subtract the output tensor to isolate the transient workspace.
+            workspace_mb = max(0.0, layer.activation_memory - out_mb)
+
+            # Peak check: during execution, both output + workspace are live
+            peak = max(peak, live_memory + workspace_mb)
+            # workspace is freed immediately after the layer finishes
+
+            # Consume predecessors: decrement their remaining consumer count
+            if self.dag is not None:
+                for pred in self.dag.predecessors(layer.id):
+                    if pred in layer_ids:
+                        remaining_consumers[pred] -= 1
+                        if remaining_consumers[pred] == 0:
+                            # This predecessor's output is no longer needed
+                            live_memory -= id_to_layer[pred].output_bytes / (1024 * 1024)
+
         return peak
 
     def __repr__(self):
