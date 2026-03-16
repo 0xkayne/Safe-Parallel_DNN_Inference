@@ -95,7 +95,15 @@ MODEL_NAME_MAP = {
     'vit_large': 'ViT-large',
     'vit_small': 'ViT-small',
     'vit_tiny': 'ViT-tiny',
+    'resnet50': 'ResNet-50',
+    'vgg16': 'VGG-16',
 }
+
+# Only run these models (basename without .csv extension)
+SELECTED_MODELS = [
+    'resnet50', 'vgg16', 'InceptionV3',
+    'bert_large', 'albert_large', 'vit_large',
+]
 
 
 def ensure_dirs():
@@ -139,14 +147,21 @@ def get_model_name(csv_file):
     name = basename.replace('.csv', '')
     return name
 
+
+def get_selected_csv_files():
+    """Return sorted list of CSV files filtered by SELECTED_MODELS."""
+    all_files = glob.glob(os.path.join(DATASETS_DIR, '*.csv'))
+    filtered = [f for f in all_files if get_model_name(f) in SELECTED_MODELS]
+    return sorted(filtered)
+
 def run_server_ablation():
     """Run server heterogeneous experiment with INCREMENTAL addition."""
     print("\n" + "=" * 60)
     print("Running Heterogeneous Server Experiment (Incremental Addition)")
     print("Order: [2x Celeron, 4x i5-5600, 1x i3, 1x i5-11600]")
     print("=" * 60)
-    
-    csv_files = glob.glob(os.path.join(DATASETS_DIR, '*.csv'))
+
+    csv_files = get_selected_csv_files()
     
     # Determine output directory: use timestamped folder if exists, otherwise fallback to SERVER_CHART_DIR
     if CURRENT_EXP_DIR:
@@ -211,8 +226,8 @@ def run_network_ablation():
     print("\n" + "=" * 60)
     print("Running Network Bandwidth Ablation Experiment")
     print("=" * 60)
-    
-    csv_files = glob.glob(os.path.join(DATASETS_DIR, '*.csv'))
+
+    csv_files = get_selected_csv_files()
     
     # Determine output directory: use timestamped folder if exists, otherwise fallback to NETWORK_CHART_DIR
     if CURRENT_EXP_DIR:
@@ -328,18 +343,8 @@ def generate_server_charts():
     print(f"  Saving figures to: {plot_dir}")
     
     models = [
-        ('server_hetero_incremental_DistillBERT-base.csv', 'DistillBERT-base'),
-        ('server_hetero_incremental_ALBERT-base.csv', 'ALBERT-base'),
-        ('server_hetero_incremental_ALBERT-large.csv', 'ALBERT-large'),
-        ('server_hetero_incremental_BERT-base.csv', 'BERT-base'),
-        ('server_hetero_incremental_BERT-large.csv', 'BERT-large'),
-        ('server_hetero_incremental_TinyBERT-4l.csv', 'TinyBERT-4l'),
-        ('server_hetero_incremental_TinyBERT-6l.csv', 'TinyBERT-6l'),
-        ('server_hetero_incremental_ViT-tiny.csv', 'ViT-tiny'),
-        ('server_hetero_incremental_ViT-small.csv', 'ViT-small'),
-        ('server_hetero_incremental_ViT-base.csv', 'ViT-base'),
-        ('server_hetero_incremental_ViT-large.csv', 'ViT-large'),
-        ('server_hetero_incremental_InceptionV3.csv', 'InceptionV3'),
+        (f'server_hetero_incremental_{MODEL_NAME_MAP[m]}.csv', MODEL_NAME_MAP[m])
+        for m in SELECTED_MODELS
     ]
     
     for csv_file, model_name in models:
@@ -436,18 +441,8 @@ def generate_network_charts():
     print(f"  Saving figures to: {plot_dir}")
 
     models = [
-        ('network_DistillBERT-base.csv', 'DistillBERT-base'),
-        ('network_ALBERT-base.csv', 'ALBERT-base'),
-        ('network_ALBERT-large.csv', 'ALBERT-large'),
-        ('network_BERT-base.csv', 'BERT-base'),
-        ('network_BERT-large.csv', 'BERT-large'),
-        ('network_TinyBERT-4l.csv', 'TinyBERT-4l'),
-        ('network_TinyBERT-6l.csv', 'TinyBERT-6l'),
-        ('network_ViT-tiny.csv', 'ViT-tiny'),
-        ('network_ViT-small.csv', 'ViT-small'),
-        ('network_ViT-base.csv', 'ViT-base'),
-        ('network_ViT-large.csv', 'ViT-large'),
-        ('network_InceptionV3.csv', 'InceptionV3'),
+        (f'network_{MODEL_NAME_MAP[m]}.csv', MODEL_NAME_MAP[m])
+        for m in SELECTED_MODELS
     ]
 
     for csv_file, model_name in models:
@@ -547,7 +542,7 @@ def run_fixed_comparison():
     print("=" * 60)
 
     os.makedirs(EXP1_COMPARISON_DIR, exist_ok=True)
-    csv_files = sorted(glob.glob(os.path.join(DATASETS_DIR, '*.csv')))
+    csv_files = get_selected_csv_files()
 
     all_results = []
 

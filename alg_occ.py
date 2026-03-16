@@ -12,6 +12,8 @@ class OCCAlgorithm:
 
     # DDR memcpy bandwidth for weight loading via OCALL (conservative 10 GB/s)
     WEIGHT_COPY_BW_MB_PER_MS = 10.0
+    # HMAC-SHA256 hash verification bandwidth in SGX enclave (~0.5 GB/s = 0.5 MB/ms)
+    HASH_VERIFY_BW_MB_PER_MS = 0.5
     # EPC ring buffer overhead for weight staging (fixed per partition)
     RING_BUFFER_EPC_MB = 20.0
     
@@ -84,22 +86,22 @@ class OCCAlgorithm:
         server_schedule = {s.id: [] for s in self.servers}
 
         for part in partitions:
-            # OCC: weights in UNPROTECTED memory, loaded via OCALL (fast DDR memcpy, no EPC paging)
-            weight_mb = part.get_static_memory()
-            weight_load_time = weight_mb / self.WEIGHT_COPY_BW_MB_PER_MS
-
-            # EPC holds only activations + ring buffer for weight staging (NOT the weights themselves)
-            activation_peak_mb = part.total_memory - part.get_static_memory()
-            epc_usage_mb = activation_peak_mb + self.RING_BUFFER_EPC_MB
-            penalty = calculate_penalty(epc_usage_mb)
-
-            exec_time = (part.total_workload * penalty) / max_power_ratio
-
-            # Three-thread pipeline: weight loading overlaps with inference
-            effective_time = max(exec_time, weight_load_time)
+            # Per-layer 3-thread pipeline (Occlumency paper §4-6):
+            # For each layer, Thread1 loads weights from untrusted memory,
+            # Thread2 verifies HMAC-SHA256, Thread3 computes using verified weights.
+            # The bottleneck per layer is max(load, hash, compute).
+            # A layer's weights must be fully verified before its computation begins,
+            # so heavy-weight layers (e.g. fc1) cannot hide hash cost behind other layers.
+            partition_time = 0.0
+            for layer in part.layers:
+                layer_weight_mb = layer.weight_memory
+                layer_load_time = layer_weight_mb / self.WEIGHT_COPY_BW_MB_PER_MS
+                layer_hash_time = layer_weight_mb / self.HASH_VERIFY_BW_MB_PER_MS
+                layer_exec_time = layer.workload / max_power_ratio
+                partition_time += max(layer_exec_time, layer_load_time, layer_hash_time)
 
             start_t = current_time
-            current_time += effective_time
+            current_time += partition_time
             server_schedule[s_id].append({
                 'start': start_t,
                 'end': current_time,

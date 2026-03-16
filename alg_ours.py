@@ -18,6 +18,8 @@ from copy import deepcopy
 from common import (
     Partition, EPC_EFFECTIVE_MB, calculate_penalty,
     network_latency, ScheduleResult, hpa_cost, DNNLayer,
+    PAGE_SIZE_KB, PAGE_FAULT_OVERHEAD_MS,
+    ENCLAVE_ENTRY_EXIT_OVERHEAD_MS, DEFAULT_PAGING_BW_MBPS,
 )
 
 
