@@ -138,15 +138,19 @@ class ModelLoader:
                     
                     # Execution mode (new dataset format)
                     execution_mode = get_val(row, ['execution_mode', 'ExecutionMode'], 'Unknown')
-                    
+
+                    # Layer type (e.g., Conv2d, Linear, MatMul)
+                    layer_type = get_val(row, ['type', 'Type'], '')
+
                 except ValueError:
-                    continue 
-                
+                    continue
+
                 layer = DNNLayer(idx, name, mem_mb, cpu_time, enclave_time, out_bytes, execution_mode,
                                  weight_memory=weight_mb,
                                  bias_memory=bias_mb,
                                  activation_memory=activation_mb,
-                                 encryption_overhead=encryption_mb)
+                                 encryption_overhead=encryption_mb,
+                                 layer_type=layer_type)
                 layers_map[idx] = layer
                 G.add_node(idx, layer=layer)
             

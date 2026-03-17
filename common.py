@@ -103,17 +103,43 @@ def network_latency(data_mb, bandwidth_mbps, is_first_hop=False):
     
     return rtt + transmission_time + attestation
 
+def is_conv_layer(layer) -> bool:
+    """Determine if a layer uses filter parallelism (Conv) vs column parallelism (FC).
+
+    Conv layers use filter parallelism: each shard computes independent output
+    channels, requiring only AllGather (concatenation) for synchronisation.
+    FC layers use column parallelism: each shard computes partial sums,
+    requiring AllReduce (reduce-scatter + all-gather) for synchronisation.
+    AllGather costs (k-1)/k × output_bytes; AllReduce costs 2(k-1)/k × output_bytes.
+
+    Falls back to name-based heuristics when the CSV lacks a 'type' column.
+    """
+    lt = (layer.layer_type or '').lower()
+    if lt:
+        if 'conv' in lt:
+            return True
+        if lt in ('linear', 'matmul'):
+            return False
+    # Infer from name for datasets without type column (e.g. InceptionV3)
+    name = layer.name.lower()
+    if any(p in name for p in ('conv', '1x1', '3x3', '5x5', '7x7', 'dwconv')):
+        return True
+    if any(p in name for p in ('fc', 'linear', 'proj', 'dense', 'matmul', 'ffn')):
+        return False
+    return False  # Default: FC (conservative — AllReduce has higher cost)
+
+
 def hpa_cost(
-    layer, 
-    k: int, 
-    bandwidth_mbps: float, 
+    layer,
+    k: int,
+    bandwidth_mbps: float,
     efficiency_gamma: float = 0.9,
     activation_split_ratio: float = 1.0,  # NEW: 激活切分比例 (1.0=完全切分, 0.0=完全复制)
     sync_probability: float = 0.5         # NEW: 同步概率 (0.5=双层摊销, 1.0=每层同步)
 ) -> float:
     """
     Compute HPA cost for splitting a layer into k parallel shards.
-    
+
     Args:
         layer: DNNLayer object
         k: Parallelism degree (number of shards)
@@ -126,15 +152,19 @@ def hpa_cost(
             - 1.0: Always sync (isolated TP layer)
             - 0.5: Amortized sync (Megatron-style: 2 layers share 1 AllReduce)
             - 0.0: No sync (intermediate layer in TP group)
-    
+
     Returns:
         float: Total cost in ms = compute + paging + sync
-    
+
     Cost Model (Optimized):
         Cost(v, k) = T_comp/k^γ + Penalty_mem(M_shard) + T_sync(k) * P_sync
-        
+
         Where M_shard = (M_weight/k) + M_activation * (1 - α + α/k)
               α = activation_split_ratio
+
+        Sync primitive depends on layer type:
+            Conv → AllGather (filter parallelism):   (k-1)/k × output_bytes
+            FC   → AllReduce (column parallelism): 2(k-1)/k × output_bytes
     """
     # 1. Compute cost with efficiency factor
     t_comp_original = layer.workload  # ms
@@ -165,12 +195,16 @@ def hpa_cost(
     
     t_paging = t_runtime_penalty + t_init
     
-    # 3. Sync cost (FIXED: apply sync_probability to amortize AllReduce)
+    # 3. Sync cost — primitive depends on layer type
     if k > 1:
-        # Ring AllReduce: 2 * (k-1)/k * data_volume
-        sync_bytes = layer.output_bytes * 2 * (k - 1) / k
+        if is_conv_layer(layer):
+            # Filter parallelism → AllGather (concatenate independent output channels)
+            sync_bytes = layer.output_bytes * (k - 1) / k
+        else:
+            # Column parallelism → AllReduce (reduce partial sums + broadcast)
+            sync_bytes = layer.output_bytes * 2 * (k - 1) / k
         sync_mb = sync_bytes / (1024 * 1024)
-        
+
         # Apply sync probability factor (default 0.5 for Megatron-style TP)
         t_sync = network_latency(sync_mb, bandwidth_mbps) * sync_probability
     else:
@@ -193,24 +227,26 @@ BASELINE_COMPUTE = 1.00
 
 class DNNLayer:
     def __init__(self, layer_id, name, memory, cpu_time, enclave_time, output_bytes, execution_mode='Unknown',
-                 weight_memory=0.0, bias_memory=0.0, activation_memory=0.0, encryption_overhead=0.0):
+                 weight_memory=0.0, bias_memory=0.0, activation_memory=0.0, encryption_overhead=0.0,
+                 layer_type=''):
         self.id = layer_id
         self.name = name
         self.memory = memory          # MB (Total memory footprint)
-        
+
         # Granular memory components (MB)
         self.weight_memory = weight_memory
         self.bias_memory = bias_memory
         self.activation_memory = activation_memory
         self.encryption_overhead = encryption_overhead
-        
+
         self.cpu_time = cpu_time      # ms
         self.enclave_time = enclave_time # ms
         self.output_bytes = output_bytes # Bytes
         self.execution_mode = execution_mode  # Execution mode (e.g., 'Enclave', 'CPU')
-        
+        self.layer_type = layer_type  # e.g., 'Conv2d', 'Linear', 'MatMul'
+
         # Workload is treated as measured execution time
-        self.workload = enclave_time 
+        self.workload = enclave_time
 
     def __repr__(self):
         return f"Layer({self.name}, mem={self.memory:.2f})"

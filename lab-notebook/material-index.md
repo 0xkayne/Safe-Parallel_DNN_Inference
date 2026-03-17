@@ -18,7 +18,7 @@
 | **SGX 内存真实性增强（v10 核心）** | workspace（activation−output）+ 碎片 ×1.15 + 框架 10MB；InceptionV3: 100.0→117.7MB | [Exp1 v10 结果](phase-3-实验结果分析/notes.md) |
 | **MEDIA Check() 被迫选 paging（v10 关键发现）** | BERT-large@100Mbps: 层间传输 16.5MB→1325ms >> paging 163ms → Check() 合并 → 6 分区全超 EPC → M/O=4.57× | [Exp1 v10 结果](phase-3-实验结果分析/notes.md) |
 | **MEDIA 退化** | v10 大模型 3-5× 慢于 OCC（BERT-large: 4.57×, ViT-large: 5.09×）；合并 = 累积更多激活 = 更严重 paging | [Exp1 v10 结果](phase-3-实验结果分析/notes.md) |
-| **Ours 主要加速（100Mbps）** | InceptionV3: **1.62×** vs OCC（930ms vs 1506ms），所有12模型 Ours ≤ OCC | [Exp1 v10 结果](phase-3-实验结果分析/notes.md) |
+| **Ours 主要加速（100Mbps）** | InceptionV3: **1.70×** vs OCC（891ms vs 1514ms），YOLOv5: **1.40×**（8304ms vs 11613ms），VGG-16: **2.28×**（1353ms vs 3079ms） | [Exp1 v13 结果](phase-3-实验结果分析/notes.md) |
 | OCC 天然适配 | Weights outside EPC → 仅 activation+ring buffer 在 EPC → 分区小 → 无 paging | [v9 分析](phase-4-算法理论分析/notes.md) |
 | Ours 低带宽鲁棒性 | 任意模型 @ 0.5Mbps: Ours ≈ OCC（单机保底触发） | [Exp2 结果](phase-3-实验结果分析/notes.md) |
 
@@ -52,8 +52,8 @@
 
 | 素材 | 要点 | 来源 |
 |------|------|------|
-| HPA 并行度 DP 决策 | `Cost(v,k) = T_comp/k^γ + Penalty(M/k) + T_AllReduce × P_sync` | [Ours vs MEDIA 分析](phase-4-算法理论分析/notes.md) |
-| AllReduce 通信模型 | Ring AllReduce: `2(k-1)/k × output_bytes`，同步概率 0.5 | [Ours vs MEDIA 分析](phase-4-算法理论分析/notes.md) |
+| HPA 并行度 DP 决策 | `Cost(v,k) = T_comp/k^γ + Penalty(M/k) + T_sync × P_sync` | [Ours vs MEDIA 分析](phase-4-算法理论分析/notes.md) |
+| **类型感知同步原语（v13）** | Conv→AllGather `(k-1)/k × output`（滤波器并行）；FC→AllReduce `2(k-1)/k × output`（列并行），通信量差 2× | [v13 Conv/FC 分析](phase-3-实验结果分析/notes.md) |
 | **TEE 累积激活内存模型（v9）** | `peak_activation = Σ output_bytes`（不释放），取代 DAG liveness 追踪。物理依据：SGX free()→arena 碎片→EPC 页不回收 | [v9 内存模型分析](phase-4-算法理论分析/notes.md) |
 | 算子级 vs 分区级并行 | Ours=张量并行（层内），MEDIA=流水并行（分区间），根本差异 | [Ours vs MEDIA 分析](phase-4-算法理论分析/notes.md) |
 | 带宽自适应的意义 | 低带宽禁用 HPA（k=1），高带宽激活，平滑退化 | [Ours vs MEDIA 分析](phase-4-算法理论分析/notes.md) |
@@ -127,11 +127,12 @@
 
 ### 专利点 P1（核心）：带宽自适应张量并行度动态选择方法
 
-**技术方案**：在 SGX TEE 约束下，针对 DNN 推理中的计算密集型算子，通过动态规划（DP）方法，根据当前网络带宽、算子计算量、EPC 内存约束，为每个算子选择最优张量并行度 k（k ∈ {1, 2, 4, 8}），并通过 AllReduce 协议在 k 个 TEE 节点间同步中间结果。
+**技术方案**：在 SGX TEE 约束下，针对 DNN 推理中的计算密集型算子，通过动态规划（DP）方法，根据当前网络带宽、算子计算量、EPC 内存约束、算子类型（卷积/全连接），为每个算子选择最优张量并行度 k（k ∈ {1, 2, 4, 8}），并根据算子类型选择最优同步原语——卷积层使用 AllGather（滤波器并行），全连接层使用 AllReduce（列并行）——在 k 个 TEE 节点间同步中间结果。
 
 **新颖性要点**：
 - 在 EPC 内存约束（93MB）和网络带宽动态变化的双重约束下，联合优化并行度选择
-- 低带宽时自动退化为 k=1（单机），避免 AllReduce 开销超过并行收益
+- **类型感知同步原语**：Conv 滤波器并行产生独立输出通道，仅需 AllGather（拼接），通信量 `(k-1)/k × output`；FC 列并行产生部分和，需 AllReduce（归约），通信量 `2(k-1)/k × output`——差 2 倍
+- 低带宽时自动退化为 k=1（单机），避免同步开销超过并行收益
 - AllReduce 同步概率建模（`P_sync=0.5`，对应 Megatron 式两层共享一次同步）
 
 **技术效果**（v6 最终数据，4×Xeon_IceLake，100Mbps）：

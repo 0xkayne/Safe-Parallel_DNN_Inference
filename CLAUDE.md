@@ -101,7 +101,7 @@ All four algorithms share the same interface: `__init__(G, layers_map, servers, 
 | `alg_occ.py` | `OCCAlgorithm` | Occlumency (MobiCom'19) | Activation-only EPC partitioning (weights outside EPC) | Single-server serial baseline; 3-thread pipeline (load/compute/encrypt) |
 | `alg_dina.py` | `DINAAlgorithm` | DINA (IEEE TPDS'24) | Adaptive partitioning + swap-matching | DINA-P: workload proportional to server power; DINA-O: greedy + pairwise swap refinement |
 | `alg_media.py` | `MEDIAAlgorithm` | MEDIA | Allows >EPC (paging vs communication tradeoff) | MEDIA-style edge selection (Constraint 1: in_deg==1 OR out_deg==1) + greedy merge + priority scheduling |
-| `alg_ours.py` | `OursAlgorithm` | **Ours** (thesis) | HPA: tensor parallelism + MEDIA partitioning + HEFT scheduling | 5-stage pipeline: candidate filtering → cost surface → DAG DP → graph augmentation → HEFT |
+| `alg_ours.py` | `OursAlgorithm` | **Ours** (thesis) | HPA: type-aware tensor parallelism + MEDIA partitioning + HEFT scheduling | 5-stage pipeline: candidate filtering → cost surface → DAG DP → graph augmentation → HEFT. Conv layers use AllGather (filter parallel), FC layers use AllReduce (column parallel). |
 
 ### Server Heterogeneity
 
@@ -142,7 +142,10 @@ figures/
 **HPA Tensor Parallelism** (`hpa_cost`):
 - Compute: `workload / k^0.9` (Amdahl factor γ=0.9)
 - Memory per shard: `m_weight/k + m_activation × (1 - α + α/k)`, α=1.0
-- AllReduce sync: Ring algorithm, `2(k-1)/k × output_bytes`, probability 0.5
+- Sync cost depends on layer type (determined by `is_conv_layer()`):
+  - **Conv layers** (filter parallelism → AllGather): `(k-1)/k × output_bytes`, probability 0.5
+  - **FC layers** (column parallelism → AllReduce): `2(k-1)/k × output_bytes`, probability 0.5
+- Layer type sourced from CSV `type` column; falls back to name-based heuristics for datasets without type info (e.g., InceptionV3)
 
 ## Experiment Structure
 
@@ -155,8 +158,9 @@ figures/
 ## Important Implementation Details
 
 - **Partition memory**: Uses peak memory (weights + peak live activations via DAG liveness analysis), not sum of all layers. See `Partition._calculate_peak_memory()` and `Partition.get_static_memory()` (weights-only, used for swap cost).
-- **InceptionV3** is the only model with significant parallel branch structure — it's the key model for demonstrating Ours(HPA) advantage.
+- **InceptionV3** and **YOLOv5** have significant parallel branch structures — key models for demonstrating Ours(HPA) advantage. VGG-16 benefits from HPA on its heavy fc1 layer (392MB thrashing) and conv layers.
 - **Linear models** (BERT/ViT): MEDIA ≈ Ours is expected behavior (no parallel structure to exploit).
+- **Conv vs FC tensor parallelism**: `is_conv_layer()` in `common.py` determines sync primitive. Conv uses AllGather (half the communication of AllReduce), enabling more conv-heavy operators to pass the cost-benefit filter.
 - **`archive/`** contains legacy algorithm implementations and old scripts — not used in current experiments.
 
 ## Lab Notebook Protocol

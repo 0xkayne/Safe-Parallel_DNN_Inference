@@ -97,11 +97,12 @@ MODEL_NAME_MAP = {
     'vit_tiny': 'ViT-tiny',
     'resnet50': 'ResNet-50',
     'vgg16': 'VGG-16',
+    'yolov5': 'YOLOv5',
 }
 
 # Only run these models (basename without .csv extension)
 SELECTED_MODELS = [
-    'resnet50', 'vgg16', 'InceptionV3',
+    'resnet50', 'vgg16', 'yolov5', 'InceptionV3',
     'bert_large', 'albert_large', 'vit_large',
 ]
 

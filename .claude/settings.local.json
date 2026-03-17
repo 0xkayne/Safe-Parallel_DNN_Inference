@@ -8,7 +8,8 @@
       "Bash(python3 --version 2>/dev/null; conda --version 2>/dev/null)",
       "Bash(conda create -n safe-parallel-dnn python=3.12 -y)",
       "Bash(grep -rn \"sum.*layer\\\\|forward.*pass\\\\|stateless\\\\|memory.*management\\\\|buffer.*reuse\\\\|in-place\" /home/kayne/code/Safe-Parallel_DNN_Inference/*.py | head -30)",
-      "WebFetch(domain:)"
+      "WebFetch(domain:)",
+      "Bash(python3:*)"
     ]
   }
 }

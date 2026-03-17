@@ -17,7 +17,7 @@ from copy import deepcopy
 
 from common import (
     Partition, EPC_EFFECTIVE_MB, calculate_penalty,
-    network_latency, ScheduleResult, hpa_cost, DNNLayer,
+    network_latency, ScheduleResult, hpa_cost, DNNLayer, is_conv_layer,
     PAGE_SIZE_KB, PAGE_FAULT_OVERHEAD_MS,
     ENCLAVE_ENTRY_EXIT_OVERHEAD_MS, DEFAULT_PAGING_BW_MBPS,
 )
@@ -277,7 +277,8 @@ class OursAlgorithm:
                     weight_memory=orig_layer.weight_memory / k,
                     bias_memory=orig_layer.bias_memory / k,
                     activation_memory=orig_layer.activation_memory,
-                    encryption_overhead=orig_layer.encryption_overhead / k
+                    encryption_overhead=orig_layer.encryption_overhead / k,
+                    layer_type=orig_layer.layer_type,
                 )
                 layers_aug[new_id] = shard_layer
                 G_aug.add_node(new_id, layer=shard_layer)
@@ -285,21 +286,26 @@ class OursAlgorithm:
 
             node_to_shards[orig_node] = shards
 
-            # ── AllReduce barrier (only when actual tensor-parallelism is used) ──
+            # ── Sync barrier (only when actual tensor-parallelism is used) ──
             if k > 1:
                 ar_id = node_id_counter
                 node_id_counter += 1
 
-                # Ring AllReduce: each shard sends 2*(k-1)/k * output_bytes in total.
-                # Scale by P_sync (amortised across TP groups) and split evenly across
-                # k shards so each shard → barrier edge carries its fair share.
-                sync_bytes = orig_layer.output_bytes * 2 * (k - 1) / k
+                # Sync primitive depends on layer type:
+                #   Conv (filter parallel) → AllGather:  (k-1)/k × output_bytes
+                #   FC   (column parallel) → AllReduce: 2(k-1)/k × output_bytes
+                if is_conv_layer(orig_layer):
+                    sync_bytes = orig_layer.output_bytes * (k - 1) / k
+                    barrier_name = f"{orig_layer.name}_allgather"
+                else:
+                    sync_bytes = orig_layer.output_bytes * 2 * (k - 1) / k
+                    barrier_name = f"{orig_layer.name}_allreduce"
                 sync_mb    = sync_bytes / (1024 * 1024)
                 per_shard_sync_mb = (sync_mb * SYNC_PROBABILITY) / k
 
                 ar_layer = DNNLayer(
                     layer_id=ar_id,
-                    name=f"{orig_layer.name}_allreduce",
+                    name=barrier_name,
                     # Zero compute / memory – the barrier itself does no SGX work.
                     memory=0.0,
                     cpu_time=0.0,
@@ -322,7 +328,7 @@ class OursAlgorithm:
 
         ar_count = len(node_to_allreduce)
         if ar_count:
-            print(f"  [HPA] Added {ar_count} AllReduce barriers for k>1 operators")
+            print(f"  [HPA] Added {ar_count} sync barriers for k>1 operators")
 
         # ── Phase 3.2: Edge Rewiring ──────────────────────────────────────────────
         # For k_u > 1: downstream edges now originate from the AllReduce barrier.
