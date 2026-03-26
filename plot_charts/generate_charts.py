@@ -4,13 +4,14 @@
 图表生成脚本（纯作图，不运行实验）
 ============================
 
-从 exp_results/exp2_network_ablation/ 和 exp_results/exp3_server_ablation/ 读取已有 CSV 数据，
-生成中文字符图表，输出到 plot_charts/figures/。
+从 exp_results/exp1_fixed_comparison/、exp_results/exp2_network_ablation/ 和 exp_results/exp3_server_ablation/
+读取已有 CSV 数据，生成中文字符图表，输出到 plot_charts/figures/。
 
 使用方法：
     python generate_charts.py
 
 输出：
+    - figures/exp1/*.png, figures/exp1/*.pdf  (固定配置对比柱状图)
     - figures/exp2/*.png, figures/exp2/*.pdf  (网络带宽消融图表)
     - figures/exp3/*.png, figures/exp3/*.pdf  (服务器数量消融图表)
     - figures/exp2/combined_network_charts.png   (网络图表网格合并图)
@@ -50,8 +51,10 @@ if FONT_CN is None:
 # ============ 路径配置（所有输出放入 plot_charts/figures/） ============
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
+EXP1_DATA_DIR = os.path.join(PROJECT_ROOT, 'exp_results/exp1_fixed_comparison')
 EXP2_DATA_DIR = os.path.join(PROJECT_ROOT, 'exp_results/exp2_network_ablation')
 EXP3_DATA_DIR = os.path.join(PROJECT_ROOT, 'exp_results/exp3_server_ablation')
+EXP1_FIG_DIR  = os.path.join(SCRIPT_DIR, 'figures/exp1')
 EXP2_FIG_DIR  = os.path.join(SCRIPT_DIR, 'figures/exp2')
 EXP3_FIG_DIR  = os.path.join(SCRIPT_DIR, 'figures/exp3')
 
@@ -87,6 +90,87 @@ LWIDTHS = {'OCC': 2.5, 'DINA': 3.0, 'MEDIA': 2.0, 'Ours': 2.5}
 
 ALGOS = ['OCC', 'DINA', 'MEDIA', 'Ours']
 
+# ============ Exp1 固定配置对比柱状图 ============
+
+def create_exp1_chart(csv_file, output_dir):
+    """创建 Exp1 固定配置分组柱状图（中文标签）。"""
+    import numpy as np
+
+    df = pd.read_csv(csv_file)
+
+    plt.style.use('seaborn-v0_8-whitegrid')
+
+    models  = df['Model'].tolist()
+    methods = list(ALGOS)
+    n_models  = len(models)
+    n_methods = len(methods)
+    x         = np.arange(n_models)
+    bar_width = 0.18
+    offsets   = np.linspace(-(n_methods - 1) / 2, (n_methods - 1) / 2, n_methods) * bar_width
+
+    fig, ax = plt.subplots(figsize=(max(18, n_models * 1.8), 9), dpi=150)
+
+    hatches = {'OCC': '', 'DINA': '//', 'MEDIA': '\\\\', 'Ours': ''}
+
+    for i, method in enumerate(methods):
+        values = df[method].tolist()
+        ax.bar(x + offsets[i], values, bar_width * 0.92,
+               label=ALGO_NAMES_CN[method],
+               color=COLORS[method],
+               hatch=hatches[method],
+               edgecolor='white', linewidth=0.5)
+
+    ax.set_xlabel('模型', fontsize=15, fontweight='bold', fontproperties=FONT_CN)
+    ax.set_ylabel('推理延迟 (ms)', fontsize=15, fontweight='bold', fontproperties=FONT_CN)
+    ax.set_title('端到端推理延迟对比 (4× Xeon IceLake, 100 Mbps)',
+                 fontsize=18, fontweight='bold', fontproperties=FONT_CN, pad=15)
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(models, rotation=25, ha='right', fontsize=16,
+                       fontproperties=FONT_CN)
+    ax.tick_params(axis='y', labelsize=13)
+    ax.legend(loc='upper right', fontsize=18, frameon=True,
+              fancybox=True, shadow=True, framealpha=0.95,
+              prop=FONT_CN)
+    ax.grid(True, axis='y', linestyle='--', alpha=0.6)
+    ax.annotate('越小越好', xy=(0.01, 0.98), xycoords='axes fraction',
+                fontsize=12, fontstyle='italic', color='gray', va='top',
+                fontproperties=FONT_CN)
+
+    plt.tight_layout()
+
+    output_png = os.path.join(output_dir, 'fixed_comparison_bar_chart.png')
+    output_pdf = os.path.join(output_dir, 'fixed_comparison_bar_chart.pdf')
+    plt.savefig(output_png, dpi=300, bbox_inches='tight', facecolor='white', edgecolor='none')
+    plt.savefig(output_pdf, bbox_inches='tight', facecolor='white', edgecolor='none')
+    plt.close()
+
+    return output_png, output_pdf
+
+
+def generate_exp1_charts():
+    """生成 Exp1 固定配置对比图表。"""
+    print("\n" + "=" * 60)
+    print("生成固定配置对比图表 (Exp1)")
+    print("=" * 60)
+
+    os.makedirs(EXP1_FIG_DIR, exist_ok=True)
+    print(f"  数据来源: {EXP1_DATA_DIR}")
+    print(f"  图表输出: {EXP1_FIG_DIR}")
+
+    csv_file = os.path.join(EXP1_DATA_DIR, 'fixed_comparison_all_models.csv')
+    if os.path.exists(csv_file):
+        try:
+            png, pdf = create_exp1_chart(csv_file, EXP1_FIG_DIR)
+            print(f"  [OK] {os.path.basename(png)}")
+            print(f"  [OK] {os.path.basename(pdf)}")
+        except Exception as e:
+            print(f"  [错误] {e}")
+    else:
+        print(f"  [跳过] 文件不存在: {csv_file}")
+
+    print("  Exp1 图表生成完成！")
+
 
 # ============ 网络带宽消融图表 ============
 
@@ -95,7 +179,7 @@ def create_network_chart(csv_file, model_name, output_dir):
     df = pd.read_csv(csv_file)
 
     plt.style.use('seaborn-v0_8-whitegrid')
-    fig, ax = plt.subplots(figsize=(10, 6), dpi=150)
+    fig, ax = plt.subplots(figsize=(12, 7), dpi=150)
 
     x = df['Bandwidth(Mbps)']
     for algo in ALGOS:
@@ -110,10 +194,10 @@ def create_network_chart(csv_file, model_name, output_dir):
                 markeredgewidth=1.5,
                 zorder=3 if algo in ['DINA', 'MEDIA'] else 2)
 
-    ax.set_xlabel('网络带宽 (Mbps)', fontsize=14, fontweight='bold', fontproperties=FONT_CN)
-    ax.set_ylabel('推理延迟 (ms)', fontsize=14, fontweight='bold', fontproperties=FONT_CN)
+    ax.set_xlabel('网络带宽 (Mbps)', fontsize=15, fontweight='bold', fontproperties=FONT_CN)
+    ax.set_ylabel('推理延迟 (ms)', fontsize=15, fontweight='bold', fontproperties=FONT_CN)
     ax.set_title(f'推理延迟随网络带宽变化 ({model_name})',
-                 fontsize=16, fontweight='bold', fontproperties=FONT_CN, pad=15)
+                 fontsize=18, fontweight='bold', fontproperties=FONT_CN, pad=15)
 
     x_min, x_max = x.min(), x.max()
     if x_max <= 20 and (x_max - x_min) < 20:
@@ -122,22 +206,22 @@ def create_network_chart(csv_file, model_name, output_dir):
         tick_step = 1 if x_max <= 10 else 2
         ticks = list(range(int(x_min), int(x_max) + 1, tick_step))
         ax.set_xticks(ticks)
-        ax.set_xticklabels([str(int(t)) for t in ticks], fontsize=11)
+        ax.set_xticklabels([str(int(t)) for t in ticks], fontsize=12)
         ax.set_xlim(x_min - 0.5, x_max + 0.5)
     else:
         ax.set_xscale('log')
         ax.set_yscale('log')
         if len(x) <= 12:
             ax.set_xticks(x.values)
-            ax.set_xticklabels([str(int(v)) for v in x], fontsize=11)
+            ax.set_xticklabels([str(int(v)) for v in x], fontsize=12)
 
-    ax.tick_params(axis='y', labelsize=12)
-    ax.legend(loc='upper right', fontsize=12, frameon=True,
+    ax.tick_params(axis='y', labelsize=13)
+    ax.legend(loc='upper right', fontsize=14, frameon=True,
               fancybox=True, shadow=True, framealpha=0.95,
               prop=FONT_CN)
     ax.grid(True, linestyle='--', alpha=0.7, which='both')
     ax.annotate('越小越好', xy=(0.02, 0.02), xycoords='axes fraction',
-                fontsize=10, fontstyle='italic', color='gray',
+                fontsize=12, fontstyle='italic', color='gray',
                 fontproperties=FONT_CN)
 
     plt.tight_layout()
@@ -185,7 +269,7 @@ def create_server_chart(csv_file, model_name, output_dir):
     df = pd.read_csv(csv_file)
 
     plt.style.use('seaborn-v0_8-whitegrid')
-    fig, ax = plt.subplots(figsize=(10, 6), dpi=150)
+    fig, ax = plt.subplots(figsize=(12, 7), dpi=150)
 
     x = df['Server number']
     for algo in ALGOS:
@@ -200,22 +284,22 @@ def create_server_chart(csv_file, model_name, output_dir):
                 markeredgewidth=1.5,
                 zorder=3 if algo in ['DINA', 'MEDIA'] else 2)
 
-    ax.set_xlabel('服务器数量', fontsize=14, fontweight='bold', fontproperties=FONT_CN)
-    ax.set_ylabel('推理延迟 (ms)', fontsize=14, fontweight='bold', fontproperties=FONT_CN)
+    ax.set_xlabel('服务器数量', fontsize=15, fontweight='bold', fontproperties=FONT_CN)
+    ax.set_ylabel('推理延迟 (ms)', fontsize=15, fontweight='bold', fontproperties=FONT_CN)
     ax.set_title(f'推理延迟随服务器数量变化 ({model_name})',
-                 fontsize=16, fontweight='bold', fontproperties=FONT_CN, pad=15)
+                 fontsize=18, fontweight='bold', fontproperties=FONT_CN, pad=15)
 
     ax.set_yscale('log')
     ax.set_xticks(x.values)
-    ax.set_xticklabels([str(int(v)) for v in x], fontsize=12)
-    ax.tick_params(axis='y', labelsize=12)
+    ax.set_xticklabels([str(int(v)) for v in x], fontsize=13)
+    ax.tick_params(axis='y', labelsize=13)
 
-    ax.legend(loc='upper right', fontsize=12, frameon=True,
+    ax.legend(loc='upper right', fontsize=14, frameon=True,
               fancybox=True, shadow=True, framealpha=0.95,
               prop=FONT_CN)
     ax.grid(True, linestyle='--', alpha=0.7)
     ax.annotate('越小越好', xy=(0.02, 0.02), xycoords='axes fraction',
-                fontsize=10, fontstyle='italic', color='gray',
+                fontsize=12, fontstyle='italic', color='gray',
                 fontproperties=FONT_CN)
 
     plt.tight_layout()
@@ -314,9 +398,11 @@ def main():
     print("图表生成脚本（仅作图，不运行实验）")
     print("=" * 60)
 
+    os.makedirs(EXP1_FIG_DIR, exist_ok=True)
     os.makedirs(EXP2_FIG_DIR, exist_ok=True)
     os.makedirs(EXP3_FIG_DIR, exist_ok=True)
 
+    generate_exp1_charts()
     generate_network_charts()
     generate_server_charts()
     generate_combined_charts()
@@ -325,6 +411,7 @@ def main():
     print("全部图表生成完毕！")
     print("=" * 60)
     print(f"\n输出目录:")
+    print(f"  Exp1 固定对比: {EXP1_FIG_DIR}/")
     print(f"  网络图表  : {EXP2_FIG_DIR}/")
     print(f"  服务器图表: {EXP3_FIG_DIR}/")
 
