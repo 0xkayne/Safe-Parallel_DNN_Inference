@@ -80,23 +80,15 @@ SERVERS_FOR_NETWORK_EXP = 4
 
 
 # ============ Model name mapping ============
+# Only the 7 models used in experiments
 MODEL_NAME_MAP = {
-    'albert_base': 'ALBERT-base',
     'albert_large': 'ALBERT-large',
-    'bert_base': 'BERT-base',
     'bert_large': 'BERT-large',
-    'distilbert_base': 'DistillBERT-base',
-    'distilbert_large': 'DistillBERT-large',
     'inceptionV3': 'InceptionV3',
     'InceptionV3': 'InceptionV3',
-    'tinybert_4l': 'TinyBERT-4l',
-    'tinybert_6l': 'TinyBERT-6l',
-    'vit_base': 'ViT-base',
-    'vit_large': 'ViT-large',
-    'vit_small': 'ViT-small',
-    'vit_tiny': 'ViT-tiny',
     'resnet50': 'ResNet-50',
     'vgg16': 'VGG-16',
+    'vit_large': 'ViT-large',
     'yolov5': 'YOLOv5',
 }
 
