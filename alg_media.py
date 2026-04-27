@@ -35,6 +35,15 @@ class MEDIAAlgorithm:
         Constraint 1 (line 4): Include edge (u,v) only if |Succ(u)|==1 OR |Pre(v)|==1.
         Constraint 2 (lines 6-9, fork protection): For any successor w of u,
                       if L(u)==L(w)-1 and there exists (w',w) in M, exclude (u,v).
+        Constraint 2' (join protection, necessary correction): For any predecessor
+                      w of v, if (w,v) already in M, exclude (u,v).
+
+        Constraint 2' rationale: The paper's Constraint 2 uses L(u)==L(w)-1 which
+        only protects equal-length branches. In InceptionV3, branches have unequal
+        lengths (1-3 layers), so shorter branches bypass Constraint 2's level check
+        at join nodes, causing 3/4 branches to merge into the join partition and
+        collapsing parallel structure. Constraint 2' provides symmetric join
+        protection regardless of branch length, matching the paper's Fig.(e) results.
 
         Traversal order (paper lines 2-3):
           - u: increasing order of level (topological generations)
@@ -82,11 +91,18 @@ class MEDIAAlgorithm:
                         if violates:
                             break
 
-                    # Paper Algorithm 1 line 8: immediately remove if violates
+                    # Constraint 2' (join protection)
+                    if not violates:
+                        for wp in self.G.predecessors(v):
+                            if wp != u and (wp, v) in M_set:
+                                violates = True
+                                break
+
                     if violates:
                         M_set.remove((u, v))
                     else:
                         M_list.append((u, v))
+
         return M_list
 
     # ------------------------------------------------------------------
@@ -95,41 +111,20 @@ class MEDIAAlgorithm:
     def _contract_M_edges(self, edges_M):
         """Paper Algorithm 2: Contract M edges with Check().
 
-        Strictly follows the three cases from the paper:
-        - Case 1 (line 2-6): Both vertexes not collapsed → Check({u}, {v})
-        - Case 2 (line 7-12): Both vertexes collapsed → Check(P, P')
-        - Case 3 (line 13-18): One vertex collapsed → Check(P, {w})
+        Processes M edges in the insertion order from Algorithm 1 (not sorted).
+        Each contraction handles 3 cases (both uncollapsed, both collapsed,
+        one collapsed) — our partition-lookup approach is equivalent.
         """
         for u, v in edges_M:
             pu = self.node_to_partition[u]
             pv = self.node_to_partition[v]
-            if pu == pv:
-                continue
-
-            u_collapsed = len(pu.layers) > 1
-            v_collapsed = len(pv.layers) > 1
-
-            if not u_collapsed and not v_collapsed:
-                # Case 1: Both vertexes are not collapsed
-                if self._merge_check(pu, pv):
-                    self._merge_partitions(pu, pv)
-            elif u_collapsed and v_collapsed:
-                # Case 2: Both vertexes are collapsed
+            if pu is not pv:
                 if not self._would_cause_cycle(pu, pv):
                     if self._merge_check(pu, pv):
-                        self._merge_partitions(pu, pv)
-            else:
-                # Case 3: Only one vertex is collapsed
-                if not self._would_cause_cycle(pu, pv):
-                    if self._merge_check(pu, pv):
-                        self._merge_partitions(pu, pv)
-
-    def _merge_partitions(self, p1, p2):
-        """Merge two partitions and update node_to_partition mapping."""
-        new_layers = list(set(p1.layers + p2.layers))
-        new_part = Partition(p1.id, new_layers, self.G)
-        for l in new_layers:
-            self.node_to_partition[l.id] = new_part
+                        new_layers = list(set(pu.layers + pv.layers))
+                        new_part = Partition(pu.id, new_layers, self.G)
+                        for l in new_layers:
+                            self.node_to_partition[l.id] = new_part
 
     def _would_cause_cycle(self, p1, p2):
         """Check if merging p1 and p2 would create a cycle in the partition DAG."""
@@ -160,8 +155,12 @@ class MEDIAAlgorithm:
         """
         Paper Check() function — case-by-case merge decision.
 
-        Uses _sum_memory() model consistently for both partitioning and
-        scheduling, matching the paper's m(P) definition.
+        Uses the paper-faithful _sum_memory() model (Σ tee_total_memory) for
+        partitioning decisions.  This is intentionally different from the
+        peak-liveness model used by Partition.total_memory at scheduling time:
+        the paper's Check() is a conservative heuristic that sums per-layer
+        memory to decide partition boundaries, while scheduling needs the
+        physically-accurate peak model to compute real paging penalties.
 
         1. Always merge if combined memory fits in EPC (no paging).
         2. If it exceeds EPC, merge only if paging cost < communication cost saved.
@@ -244,9 +243,12 @@ class MEDIAAlgorithm:
 
         partitions_list = {p.id: p for p in partitions}
         priorities = self._compute_priorities(partition_graph, partitions_list)
+        topo_order = list(nx.topological_sort(partition_graph))
+        topo_idx = {pid: i for i, pid in enumerate(topo_order)}
+
         sorted_partitions = sorted(
             partitions,
-            key=lambda p: priorities[p.id],
+            key=lambda p: (priorities[p.id], -topo_idx[p.id]),
             reverse=True,
         )
 
@@ -276,8 +278,8 @@ class MEDIAAlgorithm:
                         dependency_ready = max(dependency_ready, pred_ft)
 
                 start_t = max(server_free_time[s.id], dependency_ready)
-                # Use the same _sum_memory model as Check() for consistency
-                exec_t = (p.total_workload * calculate_penalty(self._sum_memory(p.layers))) / s.power_ratio
+                # Use peak-liveness memory (physically correct) for paging penalty
+                exec_t = (p.total_workload * calculate_penalty(p.total_memory)) / s.power_ratio
                 ft = start_t + exec_t
 
                 if ft < best_ft:
@@ -306,8 +308,8 @@ class MEDIAAlgorithm:
 
         for pid in reversed(topo_order):
             partition = partitions_list[pid]
-            # Use the same _sum_memory model as Check() for consistency
-            t_exec = (partition.total_workload * calculate_penalty(self._sum_memory(partition.layers))) / avg_p
+            # Use peak-liveness memory (physically correct) for paging penalty
+            t_exec = (partition.total_workload * calculate_penalty(partition.total_memory)) / avg_p
 
             successors = list(partition_graph.successors(pid))
             if not successors:

@@ -49,6 +49,73 @@ HEAP_FRAGMENTATION_FACTOR = 1.15
 # Measured range: 5-20 MB for ONNX Runtime / TFLite inside SGX (take conservative 10 MB)
 FRAMEWORK_RUNTIME_OVERHEAD_MB = 10.0
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# Unified Weights-Outside-EPC Memory Model (Occlumency, MobiCom'19 §4-6)
+# ═══════════════════════════════════════════════════════════════════════════════
+# All methods share this model: weights stored encrypted in untrusted DRAM,
+# loaded on-demand into EPC via OCALL with HMAC integrity verification.
+# EPC holds only activations + ring buffer for weight staging.
+
+# DDR memcpy bandwidth for OCALL weight loading (conservative 10 GB/s)
+DDR_COPY_BW_MB_PER_MS = 10.0
+
+# HMAC-SHA256 verification bandwidth in SGX enclave (~0.5 GB/s)
+# This is the software SHA-256 bottleneck — dominant for weight-heavy FC layers
+HMAC_VERIFY_BW_MB_PER_MS = 0.5
+
+# EPC ring buffer for weight staging (OCC paper Fig.9)
+RING_BUFFER_EPC_MB = 20.0
+
+
+def partition_exec_cost(partition, server_power_ratio,
+                         ddr_bw=DDR_COPY_BW_MB_PER_MS,
+                         hmac_bw=HMAC_VERIFY_BW_MB_PER_MS,
+                         ring_buf=RING_BUFFER_EPC_MB):
+    """Compute execution cost of a partition under the unified weights-outside-EPC model.
+
+    Three-thread pipeline (OCC §4-6):
+      Thread 1 — DDR load:   OCALL memcpy(untrusted DRAM → EPC ring buffer)
+      Thread 2 — HMAC check: integrity verification in enclave
+      Thread 3 — Compute:    matrix multiply / convolution
+
+    Per-layer bottleneck: max(T_compute, T_load, T_hmac)
+    Paging penalty is charged on activation memory ONLY (weights are outside EPC).
+
+    Args:
+        partition: Partition object
+        server_power_ratio: Compute power ratio of the target server
+        ddr_bw: DDR copy bandwidth in MB/ms
+        hmac_bw: HMAC verification bandwidth in MB/ms
+        ring_buf: EPC ring buffer size in MB
+
+    Returns:
+        (eff_time_ms, load_time_ms, hash_time_ms, penalty):
+          eff_time_ms = max(T_compute, T_load, T_hmac) per layer, summed over layers
+          load_time_ms = total DDR copy time (before pipeline overlap)
+          hash_time_ms = total HMAC time (before pipeline overlap)
+          penalty = paging penalty multiplier (≥1.0, activation-only)
+    """
+    weight_mb = partition.get_static_memory()
+    peak_act = partition.total_memory - weight_mb
+
+    # Paging penalty: activation memory only (weights are outside EPC)
+    penalty = calculate_penalty(peak_act + ring_buf)
+
+    total_exe = 0.0
+    total_load = 0.0
+    total_hash = 0.0
+
+    for layer in partition.layers:
+        t_comp = layer.workload / server_power_ratio
+        t_load = layer.weight_memory / ddr_bw
+        t_hash = layer.weight_memory / hmac_bw
+        # Pipeline: bottleneck is the slowest of the three threads
+        total_exe += max(t_comp, t_load, t_hash)
+        total_load += t_load
+        total_hash += t_hash
+
+    return total_exe, total_load, total_hash, penalty
+
 # ============================================
 # Distributed Multi-TEE Inference Parameters
 # (Calibrated based on real-world measurements)

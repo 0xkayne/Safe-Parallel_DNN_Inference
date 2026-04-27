@@ -33,23 +33,29 @@ from common import (
     Partition, DNNLayer, ScheduleResult,
     EPC_EFFECTIVE_MB, calculate_penalty, network_latency, hpa_cost,
     is_conv_layer,
-    PAGE_SIZE_KB, PAGE_FAULT_OVERHEAD_MS,
-    ENCLAVE_ENTRY_EXIT_OVERHEAD_MS, DEFAULT_PAGING_BW_MBPS,
+    DDR_COPY_BW_MB_PER_MS, HMAC_VERIFY_BW_MB_PER_MS, RING_BUFFER_EPC_MB,
 )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Helper: paging cost for a partition (used by MEDIA merge-check)
+# Helper: per-layer effective time under weights-outside-EPC model
 # ──────────────────────────────────────────────────────────────────────────────
-def _paging_cost(partition: Partition) -> float:
-    """Estimate SGX paging overhead for loading partition weights."""
-    swap_mb = partition.get_static_memory()
-    num_pages = math.ceil(swap_mb * 1024 / PAGE_SIZE_KB)
-    return (
-        num_pages * PAGE_FAULT_OVERHEAD_MS
-        + swap_mb / (DEFAULT_PAGING_BW_MBPS / 1000.0)
-        + ENCLAVE_ENTRY_EXIT_OVERHEAD_MS
-    )
+def _layer_eff_time(layer: DNNLayer, power_ratio: float,
+                    ddr_bw=DDR_COPY_BW_MB_PER_MS,
+                    hmac_bw=HMAC_VERIFY_BW_MB_PER_MS) -> float:
+    """Three-thread pipeline bottleneck: max(compute, load_ddr, hmac_verify)."""
+    t_comp = layer.workload / power_ratio
+    t_load = layer.weight_memory / ddr_bw
+    t_hash = layer.weight_memory / hmac_bw
+    return max(t_comp, t_load, t_hash)
+
+
+def _partition_activation_penalty(partition: Partition,
+                                   ring_buf=RING_BUFFER_EPC_MB) -> float:
+    """Paging penalty charged on activation memory only (weights outside EPC)."""
+    weight_mb = partition.get_static_memory()
+    peak_act = partition.total_memory - weight_mb
+    return calculate_penalty(peak_act + ring_buf)
 
 
 class OursAlgorithm:
@@ -321,19 +327,28 @@ class OursAlgorithm:
 
     # ── 4.4 Merge check (MEDIA Check()) ──────────────────────────────────────
     def _merge_check(self, p1: Partition, p2: Partition, G: nx.DiGraph) -> bool:
-        """Return True if merging p1 and p2 reduces (or keeps) total latency."""
+        """Return True if merging p1 and p2 reduces (or keeps) total latency.
+
+        Partitioning heuristic (Case A) uses total_memory (including weights)
+        as a conservative proxy to prevent over-merging.  Execution cost
+        (Case B) uses the physically accurate activation-only penalty +
+        per-layer three-thread pipeline.
+        """
         merged = list(set(p1.layers + p2.layers))
         tmp = Partition(-1, merged, G)
-        mem = tmp.total_memory
 
-        # Case A: fits in EPC → always merge
-        if mem <= EPC_EFFECTIVE_MB:
+        # Case A: conservative heuristic — cumulative sum of per-layer memory
+        # fits in EPC.  Overestimates actual peak but prevents over-merging
+        # of parallel branches (critical for distributed speedup).
+        if sum(l.memory for l in merged) <= EPC_EFFECTIVE_MB:
             return True
 
-        # Case B: exceeds EPC → compare merged cost vs separate cost
+        # Case B: conservative cost comparison (paper-style, prevents over-merge)
         avg_pwr = sum(s.power_ratio for s in self.servers) / len(self.servers)
 
-        def exec_time(part):
+        def part_time(part):
+            # Conservative: use total_memory for penalty in merge decisions
+            # (preserves parallel branches); schedule() uses accurate model
             return (part.total_workload * calculate_penalty(part.total_memory)) / avg_pwr
 
         # inter-partition communication volume
@@ -348,13 +363,17 @@ class OursAlgorithm:
         )
         t_comm = network_latency(vol, self.bandwidth_mbps) if vol > 0 and len(self.servers) > 1 else 0.0
 
-        t_sep = exec_time(p1) + exec_time(p2) + t_comm + _paging_cost(p1) + _paging_cost(p2)
-        t_mrg = exec_time(tmp) + _paging_cost(tmp)
+        t_sep = part_time(p1) + part_time(p2) + t_comm
+        t_mrg = part_time(tmp)
         return t_mrg <= t_sep
 
     # ── 4.5 Post-merge: greedily merge neighbours that fit in EPC ─────────────
     def _post_merge_epc(self, G: nx.DiGraph):
-        """Repeatedly merge adjacent partitions while total_memory <= EPC."""
+        """Repeatedly merge adjacent partitions while total_memory <= EPC.
+
+        Uses total_memory (including weights) as a conservative heuristic to
+        prevent over-merging of parallel branches.
+        """
         while True:
             parts = list({id(p): p for p in self.node_to_partition.values()}.values())
             # collect candidate pairs sorted by descending comm weight
@@ -374,7 +393,8 @@ class OursAlgorithm:
                         continue
                     merged = sorted({l.id: l for l in a.layers + b.layers}.values(), key=lambda l: l.id)
                     tmp = Partition(-1, merged, G)
-                    if tmp.total_memory > EPC_EFFECTIVE_MB:
+                    # Conservative: cumulative sum prevents over-merging
+                    if sum(l.memory for l in merged) > EPC_EFFECTIVE_MB:
                         continue
                     cand.append((comm, a, b, merged))
 
@@ -430,15 +450,11 @@ class OursAlgorithm:
         sched = {s.id: [] for s in self.servers}
         assign, finish = {}, {}
 
-        WEIGHT_COPY_BW = 10.0   # MB/ms (DDR memcpy for loading weights)
-        RING_BUF_EPC = 20.0     # MB reserved for weight staging
-
         for p in order:
             best_s, best_ft, best_start = None, float("inf"), 0.0
             weight_mb = p.get_static_memory()
-            load_t = weight_mb / WEIGHT_COPY_BW
             peak_act = p.total_memory - weight_mb
-            penalty = calculate_penalty(peak_act + RING_BUF_EPC)
+            penalty = calculate_penalty(peak_act + RING_BUFFER_EPC_MB)
 
             for s in self.servers:
                 # data-ready = max over preds (local or remote)
@@ -458,9 +474,15 @@ class OursAlgorithm:
                         ready = max(ready, pf)
 
                 start = max(free[s.id], ready)
-                exec_t = (p.total_workload * penalty) / s.power_ratio
-                eff_t = max(exec_t, load_t)       # DDR loading can overlap
-                ft = start + eff_t
+                # Per-layer three-thread pipeline (§4.4.3):
+                # DDR load / HMAC verify / compute — bottleneck per layer
+                layer_total = 0.0
+                for layer in p.layers:
+                    t_comp = layer.workload * penalty / s.power_ratio
+                    t_load = layer.weight_memory / DDR_COPY_BW_MB_PER_MS
+                    t_hash = layer.weight_memory / HMAC_VERIFY_BW_MB_PER_MS
+                    layer_total += max(t_comp, t_load, t_hash)
+                ft = start + layer_total
                 if ft < best_ft:
                     best_ft, best_s, best_start = ft, s, start
 
@@ -484,30 +506,33 @@ class OursAlgorithm:
 
     # ── Helper: single-server lower bound (OCC-style) ─────────────────────────
     def _single_server_time(self, partitions, topo_order, part_list) -> float:
-        """Estimate best possible time on the fastest server alone."""
+        """Estimate best possible time on the fastest server alone.
+
+        Per-layer three-thread pipeline: max(compute, DDR load, HMAC verify).
+        Penalty on activation only (weights outside EPC, loaded via OCALL).
+        """
         best_s = max(self.servers, key=lambda s: s.power_ratio)
+        pw = best_s.power_ratio
         total = 0.0
-        BW = 10.0
         for pid in topo_order:
             p = part_list[pid]
-            load = p.get_static_memory() / BW
-            peak = p.total_memory - p.get_static_memory()
-            exec_t = (p.total_workload * calculate_penalty(peak + 20.0)) / best_s.power_ratio
-            total += max(exec_t, load)
+            penalty = _partition_activation_penalty(p)
+            for layer in p.layers:
+                total += _layer_eff_time(layer, pw) * penalty
         return total
 
     def _build_single_server_result(self, partitions, topo_order, part_list, total_time):
         """Construct ScheduleResult for the single-server fallback."""
         best_s = max(self.servers, key=lambda s: s.power_ratio)
         sched = {s.id: [] for s in self.servers}
+        pw = best_s.power_ratio
         t = 0.0
-        BW = 10.0
         for pid in topo_order:
             p = part_list[pid]
-            load = p.get_static_memory() / BW
-            peak = p.total_memory - p.get_static_memory()
-            exec_t = (p.total_workload * calculate_penalty(peak + 20.0)) / best_s.power_ratio
-            eff = max(exec_t, load)
+            penalty = _partition_activation_penalty(p)
+            eff = 0.0
+            for layer in p.layers:
+                eff += _layer_eff_time(layer, pw) * penalty
             sched[best_s.id].append({
                 "start": t, "end": t + eff,
                 "partition_id": pid, "partition": p,
@@ -517,7 +542,11 @@ class OursAlgorithm:
 
     # ── Helper: upward-rank priority (HEFT) ───────────────────────────────────
     def _compute_priorities(self, pg: nx.DiGraph, part_list: Dict[int, Partition]) -> Dict[int, float]:
-        """Priority = exec_time + max_succ_comm + max_succ_priority."""
+        """Priority = exec_time + max_succ_comm + max_succ_priority.
+
+        Uses activation-only penalty + per-layer three-thread pipeline
+        (weights outside EPC model).
+        """
         avg_pwr = sum(s.power_ratio for s in self.servers) / len(self.servers)
         try:
             topo = list(nx.topological_sort(pg))
@@ -526,7 +555,11 @@ class OursAlgorithm:
         prio: Dict[int, float] = {}
         for pid in reversed(topo):
             p = part_list[pid]
-            t_exec = (p.total_workload * calculate_penalty(p.total_memory)) / avg_pwr
+            penalty = _partition_activation_penalty(p)
+            layer_total = 0.0
+            for layer in p.layers:
+                layer_total += _layer_eff_time(layer, avg_pwr) * penalty
+            t_exec = layer_total
             succs = list(pg.successors(pid))
             if not succs:
                 prio[pid] = t_exec

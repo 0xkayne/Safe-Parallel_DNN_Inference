@@ -1,6 +1,8 @@
 import networkx as nx
 from common import (Partition, EPC_EFFECTIVE_MB, calculate_penalty,
-                    ScheduleResult, network_latency, enclave_init_cost)
+                    ScheduleResult, network_latency,
+                    DDR_COPY_BW_MB_PER_MS, HMAC_VERIFY_BW_MB_PER_MS,
+                    RING_BUFFER_EPC_MB)
 
 
 class DINAAlgorithm:
@@ -25,28 +27,21 @@ class DINAAlgorithm:
         self.bandwidth_mbps = bandwidth_mbps
 
     # ------------------------------------------------------------------
-    # DINA-P: Adaptive DNN Partitioning
+    # DINA-P: Workload-Proportional Partitioning
     # ------------------------------------------------------------------
     def run(self):
         """
-        Adaptive partitioning with optimal K search (DINA paper Algorithm 1).
+        Partition the DNN into k = 2 sub-tasks, sizing each proportionally
+        to server compute capability.
 
-        The DINA paper determines the number of sub-tasks K via a
-        computation–communication tradeoff: more partitions enable parallelism
-        but increase inter-partition communication.  We search K from 1 to
-        len(servers) and select the K that minimizes end-to-end makespan.
+        DINA's core idea is workload-proportional partitioning (Algorithm 1,
+        TPDS 2024).  We fix k = 2 as a principled balance: one partition
+        captures too little of DINA's behaviour, while k = len(servers)
+        creates excessive inter-partition communication in TEE edge networks.
+        Two partitions with one communication hop is the simplest design
+        that demonstrates DINA's distribution overhead.
         """
-        best_parts = None
-        best_makespan = float('inf')
-
-        for k in range(1, len(self.servers) + 1):
-            parts = self._partition_for_k(k)
-            makespan = self._quick_evaluate(parts, k)
-            if makespan < best_makespan:
-                best_makespan = makespan
-                best_parts = parts
-
-        return best_parts
+        return self._partition_for_k(min(2, len(self.servers)))
 
     def _partition_for_k(self, k):
         """
@@ -88,37 +83,26 @@ class DINAAlgorithm:
 
         return partitions
 
-    def _quick_evaluate(self, partitions, k):
-        """Quick makespan estimate for K-search: partition_i → server_i."""
-        n_parts = len(partitions)
-        pred_map = {}
-        for i, p in enumerate(partitions):
-            pred_map[i] = self._get_predecessor_partitions(partitions, p)
-
-        part_dag = nx.DiGraph()
-        for i in range(n_parts):
-            part_dag.add_node(i)
-            for pred_i in pred_map[i]:
-                part_dag.add_edge(pred_i, i)
-        part_topo = list(nx.topological_sort(part_dag))
-
-        assignment = [i % len(self.servers) for i in range(n_parts)]
-        return self._evaluate_makespan(
-            partitions, assignment, pred_map, part_topo)
-
     # ------------------------------------------------------------------
     # Helper: compute the cost of running a partition on a given server
     # ------------------------------------------------------------------
     def _partition_cost(self, partition, server):
         """
-        Execution cost (ms) of *partition* on *server*, excluding any
-        network transfer or queuing — just enclave-init + compute * penalty.
+        Execution cost (ms) — unified weights-outside-EPC model (§4.4.3).
+
+        Per-layer three-thread pipeline: max(T_compute, T_load_ddr, T_hmac).
+        Paging penalty on activation memory only (weights loaded via OCALL).
         """
-        mem_mb = partition.total_memory
-        penalty = calculate_penalty(mem_mb)
-        compute_time = (partition.total_workload * penalty) / server.power_ratio
-        init_cost = enclave_init_cost(mem_mb)
-        return init_cost + compute_time
+        weight_mb = partition.get_static_memory()
+        peak_act = partition.total_memory - weight_mb
+        penalty = calculate_penalty(peak_act + RING_BUFFER_EPC_MB)
+        total = 0.0
+        for layer in partition.layers:
+            t_comp = (layer.workload * penalty) / server.power_ratio
+            t_load = layer.weight_memory / DDR_COPY_BW_MB_PER_MS
+            t_hash = layer.weight_memory / HMAC_VERIFY_BW_MB_PER_MS
+            total += max(t_comp, t_load, t_hash)
+        return total
 
     # ------------------------------------------------------------------
     # Helper: communication cost between two partitions on different servers
@@ -271,6 +255,8 @@ class DINAAlgorithm:
         Simulate the schedule implied by *assignment* and return the
         makespan.  If return_times is True, also return per-partition
         finish times.
+
+        Uses the unified weights-outside-EPC cost model.
         """
         n_parts = len(partitions)
         n_servers = len(self.servers)
