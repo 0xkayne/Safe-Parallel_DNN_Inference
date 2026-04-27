@@ -69,9 +69,20 @@ class OursAlgorithm:
         self.bandwidth_mbps = bandwidth_mbps
         self.bandwidth_per_ms = (bandwidth_mbps / 8.0) / 1000.0
 
-        # parallelism degrees to evaluate (kept paper-faithful: always 1/2/4/8)
-        self.K_candidates = [1, 2, 4, 8]
+        # parallelism degrees to evaluate: k ∈ [1, n]
+        # Ring AllReduce/AllGather work for any k ≥ 2, no power-of-2 constraint
+        n = len(servers)
+        self.K_candidates = list(range(1, n + 1))
         self.benefit_threshold = 0.95       # need >= 5% latency reduction
+
+        # Pre-compute effective power for each k-way split (§4.4.3):
+        # uses average of the k fastest servers as bottleneck estimate.
+        # This makes TP decisions server-count-aware:
+        #   - few / slow servers → conservative TP (low avg_power)
+        #   - many / fast servers → aggressive TP (high avg_power)
+        sorted_pwrs = sorted([s.power_ratio for s in servers], reverse=True)
+        self._tp_power = {k: sum(sorted_pwrs[:k]) / k
+                          for k in range(1, n + 1)}
 
         # Populated during run()
         self.G_aug = None
@@ -82,34 +93,58 @@ class OursAlgorithm:
     #  Top-level: 5-stage pipeline
     # ═══════════════════════════════════════════════════════════════════════════
     def run(self) -> List[Partition]:
-        """Execute Stages 0-4 and return the list of partitions."""
-        # Stage 0: decide which operators are worth splitting
+        """Execute Stages 0-5 for TP and no-TP, return the lower-latency result.
+
+        Dual evaluation: the TP configuration is always compared against a
+        TP-disabled baseline (all k=1).  If TP does not reduce end-to-end
+        makespan — e.g. due to increased inter-partition communication from
+        finer-grained shards — the baseline is selected.  This guarantees
+        that adding parallelism never degrades performance.
+        """
         candidates = self._filter_candidates()
-
-        # Stage 1: build cost surface  (node_id -> {k: latency_ms})
         cost_surface = self._build_cost_surface(candidates)
+        cfg_tp = self._select_best_k(cost_surface, candidates)
+        cfg_no_tp = {nid: 1 for nid in self.layers_map}
 
-        # Stage 2: pick best k for every operator
-        optimal_cfg = self._select_best_k(cost_surface, candidates)
-        n_splits = sum(1 for k in optimal_cfg.values() if k > 1)
+        best_parts, best_lat = None, float('inf')
+        winner_g, winner_layers, winner_tp, winner_n2p = None, None, None, None
 
-        # Stage 3: split operators and insert sync barriers into DAG
-        self.G_aug, self.layers_aug = self._augment_graph(optimal_cfg)
+        for cfg in (cfg_tp, cfg_no_tp):
+            G_aug, layers_aug, tp_origin = self._augment_graph(cfg)
+            self.G_aug, self.layers_aug = G_aug, layers_aug
+            self._tp_origin = tp_origin
+            parts = self._media_partition(G_aug, layers_aug)
+            result = self._schedule_impl(parts)
+            if result.latency < best_lat:
+                best_lat = result.latency
+                best_parts = parts
+                winner_g, winner_layers, winner_tp = G_aug, layers_aug, tp_origin
+                winner_n2p = dict(self.node_to_partition)
+                self._cached_schedule = result
 
-        # Stage 4: MEDIA-style merge to form EPC-friendly partitions
-        partitions = self._media_partition(self.G_aug, self.layers_aug)
-        return partitions
+        # Restore winner's state so schedule() sees the correct graph + mapping
+        self.G_aug, self.layers_aug = winner_g, winner_layers
+        self._tp_origin = winner_tp
+        self.node_to_partition = winner_n2p
+        return best_parts
 
     # ═══════════════════════════════════════════════════════════════════════════
     #  Stage 0 : COPA – Cost-benefit candidate filtering
     # ═══════════════════════════════════════════════════════════════════════════
     def _filter_candidates(self) -> Set[int]:
-        """Return set of operator IDs that benefit from tensor parallelism."""
+        """Return set of operator IDs that benefit from tensor parallelism.
+
+        Uses server-aware power: k-way split evaluated with average of
+        k fastest servers, reflecting the bottleneck shard's speed.
+        """
         candidates = set()
         for nid, layer in self.layers_map.items():
-            base = hpa_cost(layer, 1, self.bandwidth_mbps)
+            base = hpa_cost(layer, 1, self.bandwidth_mbps,
+                            avg_power=self._tp_power.get(1, 1.0))
             best = min(
-                (hpa_cost(layer, k, self.bandwidth_mbps) for k in self.K_candidates[1:]),
+                (hpa_cost(layer, k, self.bandwidth_mbps,
+                          avg_power=self._tp_power.get(k, 1.0))
+                 for k in self.K_candidates[1:]),
                 default=base,
             )
             if best < base * self.benefit_threshold:
@@ -120,11 +155,18 @@ class OursAlgorithm:
     #  Stage 1 : Cost Surface
     # ═══════════════════════════════════════════════════════════════════════════
     def _build_cost_surface(self, candidates: Set[int]) -> Dict[int, Dict[int, float]]:
-        """For every node store latency under each valid k."""
+        """For every node store latency under each valid k.
+
+        Server-aware: each k uses avg power of k fastest servers.
+        """
         surface: Dict[int, Dict[int, float]] = {}
         for nid, layer in self.layers_map.items():
             ks = self.K_candidates if nid in candidates else [1]
-            surface[nid] = {k: hpa_cost(layer, k, self.bandwidth_mbps) for k in ks}
+            surface[nid] = {
+                k: hpa_cost(layer, k, self.bandwidth_mbps,
+                            avg_power=self._tp_power.get(k, 1.0))
+                for k in ks
+            }
         return surface
 
     # ═══════════════════════════════════════════════════════════════════════════
@@ -150,7 +192,7 @@ class OursAlgorithm:
     # ═══════════════════════════════════════════════════════════════════════════
     #  Stage 3 : Graph Augmentation
     # ═══════════════════════════════════════════════════════════════════════════
-    def _augment_graph(self, cfg: Dict[int, int]) -> Tuple[nx.DiGraph, Dict[int, DNNLayer]]:
+    def _augment_graph(self, cfg: Dict[int, int]) -> Tuple[nx.DiGraph, Dict[int, DNNLayer], Dict[int, int]]:
         """Split k>1 operators into shards and insert explicit sync barriers.
 
         Without barrier nodes HEFT would see no edge between shard_i and the
@@ -218,7 +260,15 @@ class OursAlgorithm:
                 for vs in v_shards:
                     G_aug.add_edge(u_src, vs, weight=w / kv)
 
-        return G_aug, layers_aug
+        # ── 3.3 TP origin map: which original op produced each shard ──────────
+        # Used by _merge_check() to prevent collapsing TP-created parallelism.
+        tp_origin: Dict[int, int] = {}
+        for orig, k in cfg.items():
+            if k > 1:
+                for sid in node_to_shards[orig]:
+                    tp_origin[sid] = orig
+
+        return G_aug, layers_aug, tp_origin
 
     @staticmethod
     def _make_shard(orig: DNNLayer, new_id: int, k: int) -> DNNLayer:
@@ -335,6 +385,19 @@ class OursAlgorithm:
         per-layer three-thread pipeline.
         """
         merged = list(set(p1.layers + p2.layers))
+
+        # ── TP boundary protection ──────────────────────────────────────────
+        # Never merge two partitions that contain shards from the same
+        # TP-split operator: that would collapse tensor parallelism back
+        # into sequential execution.
+        if hasattr(self, '_tp_origin') and self._tp_origin:
+            orig_p1 = {self._tp_origin.get(l.id)
+                       for l in p1.layers if l.id in self._tp_origin}
+            orig_p2 = {self._tp_origin.get(l.id)
+                       for l in p2.layers if l.id in self._tp_origin}
+            if orig_p1 & orig_p2:   # same original operator → reject merge
+                return False
+
         tmp = Partition(-1, merged, G)
 
         # Case A: conservative heuristic — cumulative sum of per-layer memory
@@ -420,7 +483,13 @@ class OursAlgorithm:
     # ═══════════════════════════════════════════════════════════════════════════
     #  Stage 5 : HEFT Scheduling
     # ═══════════════════════════════════════════════════════════════════════════
-    def schedule(self, partitions: List[Partition]) -> ScheduleResult:
+    def schedule(self, partitions: List[Partition] = None) -> ScheduleResult:
+        """Return cached result from run(), or compute fresh if needed."""
+        if partitions is None and hasattr(self, '_cached_schedule'):
+            return self._cached_schedule
+        return self._schedule_impl(partitions)
+
+    def _schedule_impl(self, partitions: List[Partition]) -> ScheduleResult:
         """List-schedule partitions using HEFT upward-rank priorities."""
         if not partitions:
             return ScheduleResult("Ours(HPA)", 0.0, {}, [])
