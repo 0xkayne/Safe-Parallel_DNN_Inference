@@ -2,7 +2,7 @@
 
 所有实验在 bug 修复后重跑，结果已写入 `exp_results/`，图表在 `figures/`。
 
-**版本历史**：v1（通信量 bug）→ v2（AllReduce+保底 bug）→ v3（非确定性 bug）→ v4（OCC DDR模型）→ v5（MEDIA paging_cost）→ v6（MEDIA join节点合并）→ v7（OCC/DINA/MEDIA baseline 正确性审计）→ v8（MEDIA/DINA 论文对齐修正）→ v9（TEE 累积激活内存模型 + penalty 函数重构）→ v10（SGX 内存真实性增强：workspace + 堆碎片 + 框架开销）→ v11（MEDIA 论文 Fig.(e) 对齐：3 baseline 修正 + peak memory 诊断）→ v12（MEDIA 算法论文忠实复现：删除 Stage 2 + Constraint 2 缺陷修复）→ **v13（Conv/FC 分类型张量并行同步原语 + OCC 哈希验证 + YOLOv5/ResNet-50/VGG-16 模型，当前）**
+**版本历史**：v1（通信量 bug）→ v2（AllReduce+保底 bug）→ v3（非确定性 bug）→ v4（OCC DDR模型）→ v5（MEDIA paging_cost）→ v6（MEDIA join节点合并）→ v7（OCC/DINA/MEDIA baseline 正确性审计）→ v8（MEDIA/DINA 论文对齐修正）→ v9（TEE 累积激活内存模型 + penalty 函数重构）→ v10（SGX 内存真实性增强：workspace + 堆碎片 + 框架开销）→ v11（MEDIA 论文 Fig.(e) 对齐：3 baseline 修正 + peak memory 诊断）→ v12（MEDIA 算法论文忠实复现：删除 Stage 2 + Constraint 2 缺陷修复）→ v13（Conv/FC 分类型张量并行同步原语 + OCC 哈希验证 + YOLOv5/ResNet-50/VGG-16 模型）→ **v14（alg_ours.py 精简重构 + 低带宽性能差异根因分析 + 服务器消融图表重绘，当前）**
 
 ---
 
@@ -1302,3 +1302,141 @@ YOLOv5 的所有计算密集型算子均为 Conv2d。卷积层的张量并行策
 > - **专利 P1 权利要求精化**：在张量并行度选择的 DP 中，根据算子类型选择不同同步原语（AllGather vs AllReduce），可作为独立从属权利要求
 
 ---
+
+---
+
+## v14：alg_ours.py 精简重构 + 低带宽性能差异根因分析 + 服务器消融图表重绘 (2026-04-27)
+
+### 背景
+
+1. **alg_ours.py 代码复杂度过高**（720 行，5 个 Stage 交织），难以在论文中准确描述和复现。进行精简重构（720→542 行），同时保持结果一致性。
+2. **服务器消融图表可读性差**：DINA 在 n=1 时延迟高达 510s（BERT-large），把 linear Y 轴顶到天际，导致 OCC/MEDIA/Ours 的差异被压缩成一条肉眼难辨的线。
+3. **导师反馈**：低带宽（0.5 Mbps）时 MEDIA/Ours 的延迟高于 OCC，与理论预期（trade-off 应退化为 OCC）不符。
+
+---
+
+### [A] alg_ours.py 精简重构
+
+**类型**：`代码重构` / `维护`
+
+#### 修改内容
+
+- **删除假 DP**：原 `_dag_dp()` 虽然计算 DP 状态，但 backtracking 是每节点贪婪选最小 `hpa_cost`，DP 状态从未被使用。改为诚实的 `_select_best_k()` 贪婪选择。
+- **提取公共函数**：`_paging_cost()` 提取为模块级函数，供 MEDIA merge-check 和 Ours 共用。
+- **简化 `_post_merge_epc`**：从嵌套 while + 内联函数改为清晰的 `_post_merge_epc()` 方法。
+- **统一 K_candidates**：恢复原始硬编码 `[1, 2, 4, 8]`（之前重构时误加 `k <= len(servers)` 过滤，导致 InceptionV3 候选数 30→27，结果从 890ms 劣化到 930ms）。
+- **Stage 注释**：5 个 Stage 的注释边界清晰，每个方法顶部标注职责。
+
+#### 验证结果
+
+| 模型 | 原始延迟 | 重构后延迟 | 差异 |
+|------|---------|-----------|------|
+| BERT-large | 2287.05 ms | 2287.05 ms | 0 ms ✅ |
+| InceptionV3 | 890.68 ms | 890.68 ms | 0 ms ✅ |
+
+> **教训**：精简代码时切勿改变隐式行为。`self.K_candidates = [k for k in [1,2,4,8] if k <= len(servers)]` 在 4 服务器场景下排除了 k=8，而原始代码始终允许 k=8（即使服务器不足，k=8 仍能通过降低每 shard 内存来避免 paging penalty）。
+
+---
+
+### [B] 低带宽性能差异根因分析
+
+**类型**：`根因分析` / `素材`
+
+#### 观察现象
+
+VGG-16 @ 0.5 Mbps：
+
+| 方法 | 延迟 | Partition 数 | 最大分区内存 | Penalty |
+|------|------|-------------|-------------|---------|
+| **OCC** | **3079.1 ms** | 1 | 36.8 MB（仅 activation） | **1.00×** |
+| **MEDIA** | **3664.3 ms** | 3 | **402.1 MB** | **7.65×** |
+| **Ours** | **2261.7 ms** | 6 | 108.4 MB | 1.33× |
+
+MEDIA 在低带宽时不退化为 OCC，反而更慢。
+
+#### 根因：方法间的内存模型根本不同
+
+**OCC 的内存模型**（MobiCom'19 论文核心设计）：
+- Weights **放在 EPC 外**（untrusted DRAM），通过 OCALL 按需加载
+- EPC 里只放 **activations + 20MB ring buffer**
+- 执行时间 = ∑ max(compute_time, load_time, hash_time)
+- **Weights 永远不会产生 paging penalty**
+
+**MEDIA / Ours 的内存模型**：
+- Weights **被视为在 EPC 内**
+- `Partition.total_memory` = weights + peak_activation + overhead
+- 执行时间 = workload × `calculate_penalty(total_memory)` / power
+- **Penalty 对 weights 也收费**
+
+#### 定量验证
+
+MEDIA 最大分区（402.1 MB）的组成：
+- Persistent（weights+bias+encryption）：**392.0 MB**
+- Peak activation：0.1 MB
+- Penalty：`1.0 + 2.0 × (402.1 - 93) / 93` = **7.65×**
+
+如果 MEDIA 使用 OCC 风格的 penalty（只考虑 activation）：
+- Part#2 penalty 将从 **7.65×** 降至 **1.00×**
+
+#### 为什么 MEDIA 的 merge-check 不选择合并为单分区？
+
+低带宽时 `t_comm` 很大，merge-check 的右边 `t_p1 + t_p2 + t_comm + t_paging` 确实更大，merge 更容易通过。
+
+**但 merge 后的 paging penalty 不是零**：
+```
+t_merged = merged_workload × penalty(merged_mem) / avg_power
+```
+
+当 merged_mem 包含 392MB weights 时，penalty = 7.65×，t_merged 爆炸。因此 MEDIA 被迫保留了 3 个分区，其中最大的一个仍有 402MB（主要是 weights），penalty 7.65×。
+
+而 OCC 的 527.8 MB weights 完全在 EPC 外，没有任何 penalty。
+
+#### 结论
+
+- **不是 trade-off 计算错误**（选项 1）：MEDIA 的 merge-check 逻辑正确，低带宽时确实倾向 merge。
+- **是内存模型差异**（选项 2）：OCC 的 weights-outside-EPC 是其方法本质优势，MEDIA/Ours 的 penalty 计算包含 weights，即使退化为单分区也无法避免 paging。
+
+> **对论文的启示**：
+> - 这恰恰说明了 **Ours 的 tensor parallelism 价值**：即使 weights 必须在 EPC 内，HPA 通过拆分 weights 降低每个 shard 的内存（Ours 最大分区 108MB vs MEDIA 402MB），从而缓解 penalty。
+> - 在论文 Discussion 中需明确指出：OCC 的 weights-outside-EPC 是其核心设计优势，MEDIA/Ours 不具备此优势，因此单服务器/低带宽场景下 MEDIA 无法完全追平 OCC。
+
+> **素材标注**：
+> - **论文 Discussion**：OCC 与 MEDIA/Ours 的内存模型差异——weights 位置不同导致 paging 行为根本不同；MEDIA 即使 merge 所有层也无法消除 weights 的 penalty
+> - **论文 Evaluation**：VGG-16 @ 0.5Mbps 的 4 方法对比表格（OCC=3079ms, MEDIA=3664ms, Ours=2262ms），说明 Ours 通过 tensor parallelism 拆分 weights 部分抵消了模型差异
+
+---
+
+### [C] 服务器消融图表重绘
+
+**类型**：`可视化优化` / `素材`
+
+#### 问题
+
+原始 linear Y 轴图中，DINA 的 n=1 值（BERT-large: 510s）把坐标轴顶到 500s+，OCC/MEDIA/Ours（几十到几百 ms）被压缩成一条线，肉眼无法分辨差异。
+
+#### 三种重绘方案
+
+| 方案 | 名称 | 用途 |
+|------|------|------|
+| A | Y 轴对数刻度（Log-Y） | 一张图容纳全部方法，DINA 高值被 log 轴自然拉开 |
+| B | 排除 DINA 的放大图 | Linear Y，专门观察 OCC/MEDIA/Ours 的精细差异 |
+| C | 归一化加速比（Speedup over OCC） | 以 OCC 为基准线（Y=1），直接回答"加速了多少倍" |
+
+#### 关键数据（Speedup over OCC @ n=8）
+
+| 模型 | MEDIA 加速比 | Ours 加速比 |
+|------|-------------|------------|
+| InceptionV3 | 1.02× | **1.63×** |
+| VGG-16 | 1.35× | **2.83×** |
+| YOLOv5 | 0.99× | **1.39×** |
+| BERT-large | 2.29× | **2.31×** |
+| ALBERT-large | 2.22× | **2.32×** |
+| ViT-large | 1.66× | **1.67×** |
+
+> **素材标注**：
+> - **论文 Evaluation（RQ3）**：服务器消融实验使用 **方案 A（Log-Y，全部方法）** 作为主图 + **方案 C（Speedup）** 作为子图，两种方案互补
+> - **论文 Discussion**：DINA 在异构递增场景下的劣化（n=1 时 0.04×~0.20×），论证朴素分布式方法在 EPC 约束下的局限性
+
+---
+
+> **版本历史更新**：v13 → **v14（alg_ours.py 精简重构 + 低带宽性能差异根因分析 + 服务器消融图表重绘，当前）**

@@ -97,13 +97,21 @@
 
 #### 服务器数量消融（RQ3：可扩展性）
 
-来源：[Exp3 结果](phase-3-实验结果分析/notes.md)
+来源：[Exp3 结果](phase-3-实验结果分析/notes.md) + [v14 图表重绘](phase-3-实验结果分析/notes.md)
 
 ```
-建议 Figure：
+建议 Figure（主图）：
 - X 轴：服务器数（1-8，标注服务器类型变化点）
-- Y 轴：推理延迟（ms）
-- 重点：Ours 随 i5-6500 增加呈近线性下降；OCC 在同类服务器增加时不改善
+- Y 轴：推理延迟（ms，log 刻度）
+- 4 条线：OCC / DINA / MEDIA / Ours
+- 重点：DINA 的异常高值（n=1 时 10-40×）在 log 轴上可清晰展示
+- 来源：v14 方案 A（combined_A_log_y.png）
+
+建议 Figure（子图）：
+- 归一化加速比 Speedup = OCC / Method
+- Y=1 灰线为 OCC 基准
+- DINA 大部分时间在基准线以下（劣化），MEDIA/Ours 在 n=8 时达 1.5-3×
+- 来源：v14 方案 C（combined_C_speedup.png）
 ```
 
 ---
@@ -120,6 +128,8 @@
 | Ours 的适用边界 | 建议带宽 ≥ 10Mbps（InceptionV3），50Mbps（BERT-base），500Mbps（BERT-large/ViT-large） | [Ours vs MEDIA 分析](phase-4-算法理论分析/notes.md) |
 | Ours 在 100Mbps 下的 n 扩展性 | InceptionV3: Ours/OCC 随 n 单调改善（0.667-0.909×）；BERT/ViT 线性模型：保底主导，Ours/OCC ≈ 0.877-0.991× 且不随 n 变化 | [Exp3 v6 结果](phase-3-实验结果分析/notes.md) |
 | OCC 不能利用多台同类服务器 | OCC@n=4 = OCC@n=2（同类型），Ours: InceptionV3 随 n 持续改善（v6 确认）；BERT/ViT 因保底主导无法利用额外算力 | [Exp3 v6 结果](phase-3-实验结果分析/notes.md) |
+| **OCC vs MEDIA/Ours 内存模型差异（v14）** | OCC 的 weights-outside-EPC 设计使其天然免疫 weights paging；MEDIA/Ours 的 `calculate_penalty(total_memory)` 包含 weights，即使 merge 为单分区也无法消除 penalty（VGG-16 Part#2: 7.65×）→ 低带宽时 MEDIA≥OCC 是必然 | [v14 根因分析](phase-3-实验结果分析/notes.md) |
+| **Ours 通过 tensor parallelism 部分抵消模型差异** | VGG-16 @ 0.5Mbps: Ours 最大分区 108MB (penalty 1.33×) vs MEDIA 402MB (penalty 7.65×)，Ours 2262ms < OCC 3079ms < MEDIA 3664ms | [v14 根因分析](phase-3-实验结果分析/notes.md) |
 
 ---
 
