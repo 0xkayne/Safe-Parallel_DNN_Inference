@@ -70,18 +70,15 @@ class OursAlgorithm:
         self.bandwidth_per_ms = (bandwidth_mbps / 8.0) / 1000.0
 
         # parallelism degrees to evaluate: k ∈ [1, n]
-        # Ring AllReduce/AllGather work for any k ≥ 2, no power-of-2 constraint
         n = len(servers)
         self.K_candidates = list(range(1, n + 1))
         self.benefit_threshold = 0.95       # need >= 5% latency reduction
 
-        # Pre-compute effective power for each k-way split (§4.4.3):
-        # uses average of the k fastest servers as bottleneck estimate.
-        # This makes TP decisions server-count-aware:
-        #   - few / slow servers → conservative TP (low avg_power)
-        #   - many / fast servers → aggressive TP (high avg_power)
+        # Pre-compute bottleneck power for each k-way split (§4.4.3):
+        # power of the k-th fastest server — the slowest shard in a
+        # k-way split determines the makespan.
         sorted_pwrs = sorted([s.power_ratio for s in servers], reverse=True)
-        self._tp_power = {k: sum(sorted_pwrs[:k]) / k
+        self._tp_power = {k: sorted_pwrs[k-1]
                           for k in range(1, n + 1)}
 
         # Populated during run()
@@ -176,15 +173,22 @@ class OursAlgorithm:
                        candidates: Set[int]) -> Dict[int, int]:
         """For each operator pick the k with lowest hpa_cost().
 
-        Note: the original codebase had a full DAG-DP here, but backtracking
-        was implemented as a per-node greedy minimisation, so the DP state was
-        never actually used.  We keep the same greedy behaviour for result
-        compatibility while making the code honest and short.
+        Tiebreaker: when two k have costs within 1%, prefer the smaller k
+        (fewer shards = less fragmentation = fewer partition boundaries).
+        This prevents k-inflation when adding more same-speed servers
+        does not improve the actual bottleneck power.
         """
         cfg: Dict[int, int] = {}
         for nid in self.G.nodes():
             if nid in candidates:
-                cfg[nid] = min(cost_surface[nid], key=cost_surface[nid].get)
+                costs = cost_surface[nid]
+                best_k = min(costs, key=costs.get)
+                best_cost = costs[best_k]
+                # Among all k within 1% of best, pick the smallest
+                for k in sorted(costs):
+                    if costs[k] <= best_cost * 1.01 and k < best_k:
+                        best_k = k
+                cfg[nid] = best_k
             else:
                 cfg[nid] = 1
         return cfg
@@ -567,13 +571,32 @@ class OursAlgorithm:
         heft_lat = max(finish.values())
 
         # ── Safeguard: never worse than best single-server sequential ─────────
-        ss_time = self._single_server_time(partitions, topo, part_list)
-        if ss_time < heft_lat:
-            return self._build_single_server_result(partitions, topo, part_list, ss_time)
+        # Single-server safeguard: never worse than running all layers
+        # sequentially on the fastest server (OCC-style execution).
+        occ_time = self._occ_style_time()
+        if occ_time < heft_lat:
+            return self._build_single_server_result(partitions, topo, part_list, occ_time)
 
         return ScheduleResult("Ours(HPA)", heft_lat, sched, partitions)
 
     # ── Helper: single-server lower bound (OCC-style) ─────────────────────────
+    def _occ_style_time(self) -> float:
+        """True OCC-style single-server time: all layers on fastest server.
+
+        Computes Σ max(compute/p, load_ddr, hmac) per layer on the fastest
+        server, without partition boundaries or per-partition penalty.
+        This is the exact lower bound — Ours can never be worse than this.
+        """
+        best_s = max(self.servers, key=lambda s: s.power_ratio)
+        pw = best_s.power_ratio
+        total = 0.0
+        # Use original layers (from self.G), not augmented shards —
+        # single-server execution doesn't need TP shards or barriers.
+        for nid in nx.topological_sort(self.G):
+            layer = self.layers_map[nid]
+            total += _layer_eff_time(layer, pw)
+        return total
+
     def _single_server_time(self, partitions, topo_order, part_list) -> float:
         """Estimate best possible time on the fastest server alone.
 
