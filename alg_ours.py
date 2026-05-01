@@ -53,7 +53,7 @@ class OursAlgorithm:
 
     # Maximum partition workload (ms) — prevents lightweight layers from
     # accumulating into giant partitions that collapse CSP-style parallelism.
-    MAX_PART_WL = 300
+    MAX_PART_WL = 150
 
     # ── Constructor ────────────────────────────────────────────────────────────
     def __init__(self, G, layers_map, servers, bandwidth_mbps):
