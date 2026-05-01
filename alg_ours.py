@@ -542,20 +542,26 @@ class OursAlgorithm:
         heft_lat = max(finish.values())
 
         # ── Safeguard: never worse than best single-server sequential ─────────
-        # Single-server safeguard: never worse than sequential on fastest server.
-        occ_time = self._occ_style_time(partitions)
-        if occ_time < heft_lat:
-            return self._build_single_server_result(partitions, topo, part_list, occ_time)
+        # Single-server safeguard: never worse than actual OCC.
+        fallback = self._occ_safeguard(heft_lat, partitions, topo, part_list)
+        if fallback is not None:
+            return fallback
 
         return ScheduleResult("Ours(HPA)", heft_lat, sched, partitions)
 
     # ── Helper: single-server lower bound ────────────────────────────────────
-    def _occ_style_time(self, partitions) -> float:
-        """Single-server time on fastest server using total_memory penalty."""
-        best_s = max(self.servers, key=lambda s: s.power_ratio)
-        pw = best_s.power_ratio
-        return sum(p.total_workload * calculate_penalty(p.total_memory)
-                   for p in partitions) / pw
+    def _occ_safeguard(self, heft_lat, partitions, topo_order, part_list):
+        """If HEFT is worse than actual OCC, fall back to OCC's result.
+
+        OCC is the single-server ground truth — our distributed method
+        must never be slower than just running everything on one server.
+        """
+        from alg_occ import OCCAlgorithm
+        occ = OCCAlgorithm(self.G, self.layers_map, self.servers, self.bandwidth_mbps)
+        occ_lat = occ.schedule(occ.run()).latency
+        if occ_lat < heft_lat:
+            return self._build_single_server_result(partitions, topo_order, part_list, occ_lat)
+        return None
 
     def _single_server_time(self, partitions, topo_order, part_list) -> float:
         """Estimate sequential time on the fastest server alone."""
