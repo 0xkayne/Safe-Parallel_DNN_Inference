@@ -51,6 +51,10 @@ def _partition_cost(partition: Partition, power_ratio: float) -> float:
 class OursAlgorithm:
     """Main HPA algorithm class."""
 
+    # Maximum partition workload (ms) — prevents lightweight layers from
+    # accumulating into giant partitions that collapse CSP-style parallelism.
+    MAX_PART_WL = 300
+
     # ── Constructor ────────────────────────────────────────────────────────────
     def __init__(self, G, layers_map, servers, bandwidth_mbps):
         self.G = G                          # original DAG
@@ -389,6 +393,13 @@ class OursAlgorithm:
 
         tmp = Partition(-1, merged, G)
 
+        # Hard cap on partition workload — prevents lightweight layers
+        # (e.g. YOLOv5 backbone) from accumulating into giant partitions
+        # that collapse CSP-style parallel branches.
+        tmp = Partition(-1, merged, G)
+        if tmp.total_workload > self.MAX_PART_WL:
+            return False
+
         # Case A: cumulative memory fits in EPC → merge
         if sum(l.memory for l in merged) <= EPC_EFFECTIVE_MB:
             return True
@@ -443,6 +454,9 @@ class OursAlgorithm:
                     tmp = Partition(-1, merged, G)
                     # Conservative: cumulative sum prevents over-merging
                     if sum(l.memory for l in merged) > EPC_EFFECTIVE_MB:
+                        continue
+                    # Also enforce workload cap (same as _merge_check)
+                    if tmp.total_workload > self.MAX_PART_WL:
                         continue
                     cand.append((comm, a, b, merged))
 
