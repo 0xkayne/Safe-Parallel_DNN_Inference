@@ -1,0 +1,15 @@
+[project]
+name = "safe-parallel-dnn-inference"
+version = "1.0.0"
+description = "分布式 DNN 推理调度仿真系统"
+requires-python = ">=3.12"
+dependencies = [
+    "networkx",
+    "pandas",
+    "numpy",
+    "matplotlib",
+    "pyvis",
+]
+
+[tool.uv]
+dev-dependencies = []
