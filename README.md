@@ -239,9 +239,6 @@ Function Check(P, P'):
 ### 使用方法
 
 ```bash
-# 安装依赖（如尚未安装）
-pip install pyvis pandas networkx
-
 # 批量处理所有模型（推荐）
 python model_struct_visualization/batch_visualize.py
 
@@ -337,39 +334,15 @@ python model_struct_visualization/batch_alg_visualize.py
 
 ### 1. 环境配置
 
-#### 创建虚拟环境
-
-**Windows (PowerShell)**
-```powershell
-# 创建虚拟环境
-python -m venv .venv
-
-# 激活虚拟环境
-.\.venv\Scripts\Activate.ps1
-
-# 如果遇到执行策略错误，先运行：
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-```
-
-**Windows (CMD)**
-```cmd
-python -m venv .venv
-.\.venv\Scripts\activate.bat
-```
-
-**macOS / Linux**
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-#### 安装依赖
+使用 [uv](https://docs.astral.sh/uv/) 管理 Python 环境与依赖。
 
 ```bash
-pip install -r requirements.txt
-```
+# 安装 uv（如尚未安装）
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-> **提示**：激活虚拟环境后，命令行前面会显示 `(.venv)` 前缀。退出虚拟环境使用 `deactivate` 命令。
+# 同步依赖（自动创建虚拟环境）
+uv sync
+```
 
 ### 2. 运行单次实验
 
