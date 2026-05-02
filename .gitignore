@@ -44,3 +44,4 @@ Thumbs.db
 # network-chart/*.csv
 # figures/*.png
 # figures/*.pdf
+.claude/settings.local.json
