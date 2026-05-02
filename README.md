@@ -197,14 +197,15 @@ Function Check(P, P'):
 ## 项目结构
 
 ```
-├── alg_occ.py                           # OCC 算法 (单机基线)
-├── alg_dina.py                          # DINA 算法 (负载比例分区)
-├── alg_media.py                         # MEDIA 算法 (度约束合并)
-├── alg_ours.py                          # Ours 算法 (TP + HEFT)
-├── common.py                            # 共享数据结构 + 成本模型
-├── loader.py                            # CSV 模型加载器
-├── run_all_experiments.py               # 实验主程序 (一键运行 3 个实验 + 生成图表)
-├── requirements.txt
+├── algorithms/                          # 算法实现
+│   ├── common.py                        # 共享数据结构 + 成本模型
+│   ├── loader.py                        # CSV 模型加载器
+│   ├── occ.py                           # OCC 算法 (单机基线)
+│   ├── dina.py                          # DINA 算法 (负载比例分区)
+│   ├── media.py                         # MEDIA 算法 (度约束合并)
+│   └── ours.py                          # Ours 算法 (TP + HEFT)
+├── run_all.py                           # 实验主程序 (一键运行 3 个实验 + 生成图表)
+├── pyproject.toml                       # uv 项目配置
 ├── datasets_260120/                     # 模型 CSV (7 个模型)
 ├── exp_results/                         # 实验结果 CSV
 │   ├── exp1_fixed_comparison/
@@ -218,9 +219,6 @@ Function Check(P, P'):
 │   ├── unified-weight-outside-epc-memory-model.md
 │   └── dina-method-configuration-analysis.md
 ├── model_struct_visualization/          # DAG 可视化工具
-│   ├── visualize_model.py
-│   ├── visualize_alg.py
-│   └── batch_visualize.py
 ├── lab-notebook/                        # 实验笔记
 └── paper_reference/                     # 论文参考图
 ```

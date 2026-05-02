@@ -1,8 +1,8 @@
 import networkx as nx
-from common import (Partition, EPC_EFFECTIVE_MB, calculate_penalty,
-                    ScheduleResult, network_latency,
-                    DDR_COPY_BW_MB_PER_MS, HMAC_VERIFY_BW_MB_PER_MS,
-                    RING_BUFFER_EPC_MB)
+from .common import (Partition, EPC_EFFECTIVE_MB, calculate_penalty,
+                     ScheduleResult, network_latency,
+                     DDR_COPY_BW_MB_PER_MS, HMAC_VERIFY_BW_MB_PER_MS,
+                     RING_BUFFER_EPC_MB)
 
 
 class DINAAlgorithm:

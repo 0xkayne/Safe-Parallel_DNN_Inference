@@ -1,6 +1,6 @@
 import networkx as nx
-from common import (Partition, EPC_EFFECTIVE_MB, calculate_penalty,
-                    ScheduleResult, network_latency)
+from .common import (Partition, EPC_EFFECTIVE_MB, calculate_penalty,
+                     ScheduleResult, network_latency)
 
 
 class MEDIAAlgorithm:

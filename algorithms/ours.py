@@ -29,7 +29,7 @@ from copy import deepcopy
 
 import networkx as nx
 
-from common import (
+from .common import (
     Partition, DNNLayer, ScheduleResult,
     EPC_EFFECTIVE_MB, calculate_penalty, network_latency, hpa_cost,
     is_conv_layer,
@@ -570,7 +570,7 @@ class OursAlgorithm:
         OCC is the single-server ground truth — our distributed method
         must never be slower than just running everything on one server.
         """
-        from alg_occ import OCCAlgorithm
+        from .occ import OCCAlgorithm
         occ = OCCAlgorithm(self.G, self.layers_map, self.servers, self.bandwidth_mbps)
         occ_lat = occ.schedule(occ.run()).latency
         if occ_lat < heft_lat:

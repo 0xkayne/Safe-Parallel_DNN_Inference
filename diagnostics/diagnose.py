@@ -25,16 +25,16 @@ import networkx as nx
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _ROOT)
 
-from loader import ModelLoader
-from common import (
+from algorithms.loader import ModelLoader
+from algorithms.common import (
     Server, EPC_EFFECTIVE_MB, calculate_penalty, network_latency,
     PAGING_BANDWIDTH_MB_PER_MS, PAGE_SIZE_KB, PAGE_FAULT_OVERHEAD_MS,
     ENCLAVE_ENTRY_EXIT_OVERHEAD_MS, DEFAULT_PAGING_BW_MBPS, RTT_MS,
     ScheduleResult, Partition
 )
-from alg_occ   import OCCAlgorithm
-from alg_dina  import DINAAlgorithm
-from alg_media import MEDIAAlgorithm
+from algorithms.occ   import OCCAlgorithm
+from algorithms.dina  import DINAAlgorithm
+from algorithms.media import MEDIAAlgorithm
 
 # -----------------------------------------------------------------
 # Helpers

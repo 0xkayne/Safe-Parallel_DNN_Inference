@@ -1,12 +1,12 @@
 """P_sync ablation: compare P_sync=0.5 (default) vs P_sync=1.0 (conservative)."""
 import sys, io
 sys.path.insert(0, '.')
-import common
-from loader import ModelLoader
-from common import Server
-from alg_ours import OursAlgorithm
-from alg_occ import OCCAlgorithm
-import alg_ours as _ao
+import algorithms.common
+from algorithms.loader import ModelLoader
+from algorithms.common import Server
+from algorithms.ours import OursAlgorithm
+from algorithms.occ import OCCAlgorithm
+import algorithms.ours as _ao
 
 orig_hpa_cost = common.hpa_cost
 

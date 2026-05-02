@@ -14,24 +14,21 @@ This project implements **3 baseline methods** reproduced from published papers,
 
 | Method | Code File | Source Paper | Venue |
 |--------|-----------|-------------|-------|
-| **OCC** | `alg_occ.py` | *Occlumency: Privacy-preserving Remote Deep-learning Inference Using SGX* (Lee et al.) | MobiCom 2019 |
-| **DINA** | `alg_dina.py` | *Distributed Inference Acceleration with Adaptive DNN Partitioning and Offloading* | IEEE TPDS 2024 |
-| **MEDIA** | `alg_media.py` | *DNN Partitioning and Assignment for Distributed Inference in SGX Empowered Edge Cloud* | N/A |
-| **Ours** | `alg_ours.py` | Our proposed method (HPA: tensor parallelism + MEDIA partitioning + HEFT scheduling) | Graduation thesis |
+| **OCC** | `algorithms/occ.py` | *Occlumency: Privacy-preserving Remote Deep-learning Inference Using SGX* (Lee et al.) | MobiCom 2019 |
+| **DINA** | `algorithms/dina.py` | *Distributed Inference Acceleration with Adaptive DNN Partitioning and Offloading* | IEEE TPDS 2024 |
+| **MEDIA** | `algorithms/media.py` | *DNN Partitioning and Assignment for Distributed Inference in SGX Empowered Edge Cloud* | N/A |
+| **Ours** | `algorithms/ours.py` | Our proposed method (HPA: tensor parallelism + MEDIA partitioning + HEFT scheduling) | Graduation thesis |
 
 **Key research goal**: Demonstrate that Ours outperforms OCC, DINA, and MEDIA in end-to-end inference latency, especially on models with parallel branch structures (e.g., InceptionV3).
 
 ## Environment Setup
 
 ```bash
-# Activate virtual environment (Windows)
-.\.venv\Scripts\Activate.ps1
+# Install uv (if needed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Or on Linux/macOS
-source .venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
+# Sync dependencies (auto-creates venv)
+uv sync
 # Core deps: networkx pandas numpy matplotlib pyvis pillow
 ```
 
@@ -41,7 +38,7 @@ pip install -r requirements.txt
 
 ```bash
 # Run all 3 experiments + generate all charts
-python run_all_experiments.py
+python run_all.py
 
 # Individual experiment functions can be called from Python:
 #   run_fixed_comparison()    — Exp1: 4×Xeon, 100Mbps, all models
@@ -71,37 +68,37 @@ python model_struct_visualization/batch_alg_visualize.py
 ### Data Flow
 
 ```
-datasets_260120/*.csv  →  loader.py (ModelLoader)  →  (nx.DiGraph, layers_map)
-                                                           ↓
-                                              alg_*.py  .run()   → partitions
-                                              alg_*.py  .schedule(partitions) → ScheduleResult
-                                                           ↓
-                                              run_all_experiments.py  → exp_results/ CSVs + figures/
+datasets_260120/*.csv  →  algorithms/loader.py (ModelLoader)  →  (nx.DiGraph, layers_map)
+                                                                        ↓
+                                                           algorithms/*.py  .run()   → partitions
+                                                           algorithms/*.py  .schedule(partitions) → ScheduleResult
+                                                                        ↓
+                                                           run_all.py  → exp_results/ CSVs + figures/
 ```
 
 All four algorithms share the same interface: `__init__(G, layers_map, servers, bandwidth_mbps)`, then `.run()` returns partitions, `.schedule(partitions)` returns a `ScheduleResult`.
 
 ### Core Modules
 
-- **`common.py`** — Shared simulation primitives:
+- **`algorithms/common.py`** — Shared simulation primitives:
   - `DNNLayer`, `Partition`, `Server`, `ScheduleResult` data classes
   - SGX cost model: `calculate_penalty()`, `network_latency()`, `hpa_cost()`, `enclave_init_cost()`
   - Key constants: `EPC_EFFECTIVE_MB=93`, `RTT_MS=5`, `PAGING_BANDWIDTH_MB_PER_MS=1.0`
   - `SERVER_TYPES` dict maps CPU names to compute power ratios (baseline Xeon=1.0)
   - `Partition._calculate_peak_memory()` tracks activation liveness via DAG analysis
 
-- **`loader.py`** — `ModelLoader.load_model_from_csv()` parses dataset CSVs into a NetworkX DAG. Handles virtual QKV splitting for old-format datasets and dependency edge creation. Returns `(G: nx.DiGraph, layers_map: dict[int, DNNLayer])`.
+- **`algorithms/loader.py`** — `ModelLoader.load_model_from_csv()` parses dataset CSVs into a NetworkX DAG. Handles virtual QKV splitting for old-format datasets and dependency edge creation. Returns `(G: nx.DiGraph, layers_map: dict[int, DNNLayer])`.
 
-- **`run_all_experiments.py`** — Experiment orchestrator. Configures server clusters (homogeneous/heterogeneous), sweeps parameters, collects results into CSVs, generates matplotlib charts (PNG+PDF), and creates combined grid images.
+- **`run_all.py`** — Experiment orchestrator. Configures server clusters (homogeneous/heterogeneous), sweeps parameters, collects results into CSVs, generates matplotlib charts (PNG+PDF), and creates combined grid images.
 
 ### The Four Algorithms
 
 | File | Class | Paper Origin | Strategy | Key Trait |
 |------|-------|-------------|----------|-----------|
-| `alg_occ.py` | `OCCAlgorithm` | Occlumency (MobiCom'19) | Activation-only EPC partitioning (weights outside EPC) | Single-server serial baseline; 3-thread pipeline (load/compute/encrypt) |
-| `alg_dina.py` | `DINAAlgorithm` | DINA (IEEE TPDS'24) | Adaptive partitioning + swap-matching | DINA-P: workload proportional to server power; DINA-O: greedy + pairwise swap refinement |
-| `alg_media.py` | `MEDIAAlgorithm` | MEDIA | Allows >EPC (paging vs communication tradeoff) | MEDIA-style edge selection (Constraint 1: in_deg==1 OR out_deg==1) + greedy merge + priority scheduling |
-| `alg_ours.py` | `OursAlgorithm` | **Ours** (thesis) | HPA: type-aware tensor parallelism + MEDIA partitioning + HEFT scheduling | 5-stage pipeline: candidate filtering → cost surface → DAG DP → graph augmentation → HEFT. Conv layers use AllGather (filter parallel), FC layers use AllReduce (column parallel). |
+| `algorithms/occ.py` | `OCCAlgorithm` | Occlumency (MobiCom'19) | Activation-only EPC partitioning (weights outside EPC) | Single-server serial baseline; 3-thread pipeline (load/compute/encrypt) |
+| `algorithms/dina.py` | `DINAAlgorithm` | DINA (IEEE TPDS'24) | Adaptive partitioning + swap-matching | DINA-P: workload proportional to server power; DINA-O: greedy + pairwise swap refinement |
+| `algorithms/media.py` | `MEDIAAlgorithm` | MEDIA | Allows >EPC (paging vs communication tradeoff) | MEDIA-style edge selection (Constraint 1: in_deg==1 OR out_deg==1) + greedy merge + priority scheduling |
+| `algorithms/ours.py` | `OursAlgorithm` | **Ours** (thesis) | HPA: type-aware tensor parallelism + MEDIA partitioning + HEFT scheduling | 5-stage pipeline: candidate filtering → cost surface → DAG DP → graph augmentation → HEFT. Conv layers use AllGather (filter parallel), FC layers use AllReduce (column parallel). |
 
 ### Server Heterogeneity
 

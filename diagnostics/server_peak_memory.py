@@ -22,12 +22,12 @@ from mpl_toolkits.mplot3d import Axes3D
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _ROOT)
 
-from loader import ModelLoader
-from common import Server, EPC_EFFECTIVE_MB
-from alg_occ import OCCAlgorithm
-from alg_dina import DINAAlgorithm
-from alg_media import MEDIAAlgorithm
-from alg_ours import OursAlgorithm
+from algorithms.loader import ModelLoader
+from algorithms.common import Server, EPC_EFFECTIVE_MB
+from algorithms.occ import OCCAlgorithm
+from algorithms.dina import DINAAlgorithm
+from algorithms.media import MEDIAAlgorithm
+from algorithms.ours import OursAlgorithm
 
 MODEL_FILES = {
     "InceptionV3": "InceptionV3.csv",

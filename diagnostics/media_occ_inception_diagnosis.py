@@ -25,13 +25,13 @@ import matplotlib.pyplot as plt
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _ROOT)
 
-from loader import ModelLoader
-from common import (
+from algorithms.loader import ModelLoader
+from algorithms.common import (
     Server, Partition, ScheduleResult, DNNLayer,
     EPC_EFFECTIVE_MB, calculate_penalty, network_latency, RTT_MS,
 )
-from alg_occ import OCCAlgorithm
-from alg_media import MEDIAAlgorithm
+from algorithms.occ import OCCAlgorithm
+from algorithms.media import MEDIAAlgorithm
 
 # ── Helpers ──────────────────────────────────────────────────────────
 
@@ -532,7 +532,7 @@ def exp4_sensitivity_analysis(G, layers_map):
 
     # (a) EPC size scan
     print("\n  --- (a) EPC Size Scan ---")
-    import common
+    import algorithms.common
     original_epc = common.EPC_EFFECTIVE_MB
     epc_values = [5, 10, 15, 20, 30, 50, 93, 150, 200]
     epc_results = []
@@ -639,7 +639,7 @@ def exp4_sensitivity_analysis(G, layers_map):
 
     # (d) RTT scan
     print("\n  --- (d) RTT Scan ---")
-    import common as common_mod
+    import algorithms.common as common_mod
     original_rtt = common_mod.RTT_MS
     rtt_values = [0, 1, 2, 5, 10, 20, 50]
     rtt_results = []
@@ -1034,7 +1034,7 @@ def exp6_paper_assumption_investigation(G, layers_map):
 
     # Paper-like: mild heterogeneity (e.g., all within 2x range)
     # Our config: Celeron(0.11x) to i5-11600(1.97x) => 18x range
-    from common import SERVER_TYPES
+    from algorithms.common import SERVER_TYPES
     print(f"  Our SERVER_TYPES:")
     for name, ratio in SERVER_TYPES.items():
         print(f"    {name}: {ratio:.2f}x")

@@ -1,7 +1,7 @@
 import csv
 import json
 import networkx as nx
-from common import DNNLayer
+from .common import DNNLayer
 
 class ModelLoader:
     @staticmethod

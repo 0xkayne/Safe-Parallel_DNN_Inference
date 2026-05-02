@@ -34,12 +34,12 @@ import matplotlib.pyplot as plt
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from loader import ModelLoader
-from common import Server
-from alg_dina import DINAAlgorithm
-from alg_media import MEDIAAlgorithm
-from alg_ours import OursAlgorithm
-from alg_occ import OCCAlgorithm
+from algorithms.loader import ModelLoader
+from algorithms.common import Server
+from algorithms.dina import DINAAlgorithm
+from algorithms.media import MEDIAAlgorithm
+from algorithms.ours import OursAlgorithm
+from algorithms.occ import OCCAlgorithm
 
 
 # ============ Configuration ============

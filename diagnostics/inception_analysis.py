@@ -25,17 +25,17 @@ import matplotlib.pyplot as plt
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _ROOT)
 
-from loader import ModelLoader
-from common import (
+from algorithms.loader import ModelLoader
+from algorithms.common import (
     Server, EPC_EFFECTIVE_MB, calculate_penalty, network_latency,
     ScheduleResult, Partition, PAGING_BANDWIDTH_MB_PER_MS,
     PAGE_SIZE_KB, PAGE_FAULT_OVERHEAD_MS, DEFAULT_PAGING_BW_MBPS,
     ENCLAVE_ENTRY_EXIT_OVERHEAD_MS, RTT_MS,
 )
-from alg_occ import OCCAlgorithm
-from alg_dina import DINAAlgorithm
-from alg_media import MEDIAAlgorithm
-from alg_ours import OursAlgorithm
+from algorithms.occ import OCCAlgorithm
+from algorithms.dina import DINAAlgorithm
+from algorithms.media import MEDIAAlgorithm
+from algorithms.ours import OursAlgorithm
 
 # ── Color scheme (project standard) ──────────────────────────────────
 COLORS = {'OCC': '#E74C3C', 'DINA': '#3498DB', 'MEDIA': '#2ECC71', 'Ours': '#9B59B6'}
